@@ -25,5 +25,6 @@ AC_CONFIG_FILES([
 	variant/Makefile
 	employee/Makefile
 	emplnofusion/Makefile
+	calc1/Makefile
 ])
 AC_OUTPUT

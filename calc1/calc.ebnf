@@ -1,0 +1,17 @@
+=======================================================================
+EBNF
+
+    group       ::= '(' expression ')'
+    factor      ::= integer | group
+    term        ::= factor (('*' factor) | ('/' factor))*
+    expression  ::= term (('+' term) | ('-' term))*
+
+=======================================================================
+x3::spirite
+
+    group       = '(' >> expression >> ')';
+    factor      = integer | group;
+    term        = factor >> *(('*' >> factor) | ('/' >> factor));
+    expression  = term >> *(('+' >> term) | ('-' >> term));
+
+=======================================================================
