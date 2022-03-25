@@ -1,6 +1,9 @@
 ACLOCAL_AMFLAGS=-stdc=++23
 
-bin_PROGRAMS=employee
+bin_PROGRAMS=emp1 emp2 emp3
 
-employee_SOURCES=main.cc \
-		employee.h
+emp1_SOURCES=employee1.cc
+
+emp2_SOURCES=employee2.cc
+
+emp3_SOURCES=employee3.cc

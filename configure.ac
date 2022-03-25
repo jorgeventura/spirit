@@ -27,6 +27,7 @@ AC_CONFIG_FILES([
 	emplnofusion/Makefile
 	calc1/Makefile
 	calc2/Makefile
+	calc3/Makefile
 	calc4/Makefile
 ])
 AC_OUTPUT
