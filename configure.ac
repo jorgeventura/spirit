@@ -11,6 +11,7 @@ AM_INIT_AUTOMAKE
 AC_PROG_CXX
 
 # Checks for libraries.
+AC_CHECK_LIB([boost_json],[main],[],[AC_MSG_FAILURE("Install libboost-json package")],[])ac_cv_lib_boost_json=ac_cv_lib_boost_json_main
 
 # Checks for header files.
 
