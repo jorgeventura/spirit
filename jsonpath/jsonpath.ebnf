@@ -1,0 +1,69 @@
+/*=========================================================================
+ jsonpath EBNF based on draft-ietf-jsonpath-base-04.txt
+
+ JSONPath WG                                              S. Gössner, Ed.
+Internet-Draft                                   Fachhochschule Dortmund
+Intended status: Standards Track                      G. Normington, Ed.
+Expires: 8 September 2022
+                                                         C. Bormann, Ed.
+                                                  Universität Bremen TZI
+                                                            7 March 2022
+
+                  JSONPath: Query expressions for JSON
+                      draft-ietf-jsonpath-base-04
+
+Table 1 provides a quick overview of the JSONPath syntax elements.
+
+     +==================+============================================+
+     | JSONPath         | Description                                |
+     +==================+============================================+
+     | $                | the root node                              |
+     +------------------+--------------------------------------------+
+     | @                | the current node                           |
+     +------------------+--------------------------------------------+
+     | . or []          | child operator                             |
+     +------------------+--------------------------------------------+
+     | n/a              | parent operator                            |
+     +------------------+--------------------------------------------+
+     | ..               | nested descendants                         |
+     +------------------+--------------------------------------------+
+     | *                | wildcard: all member values/array elements |
+     |                  | regardless of their names/indices          |
+     +------------------+--------------------------------------------+
+     | []               | subscript operator: index current node as  |
+     |                  | an array (from 0)                          |
+     +------------------+--------------------------------------------+
+     | [,]              | list operator: allows combining member     |
+     |                  | names, array indices, and slices           |
+     +------------------+--------------------------------------------+
+     | [start:end:step] | array slice operator                       |
+     +------------------+--------------------------------------------+
+     | ?()              | applies a filter expression                |
+     +------------------+--------------------------------------------+
+     | ()               | expression, e.g., for indexing             |
+     +------------------+--------------------------------------------+
+
+                      Table 1: Overview over JSONPath
+
+
+3.3.  Syntax
+
+   Syntactically, a JSONPath query consists of a root selector ($),
+   which stands for a nodelist that contains the root node of the
+   argument, followed by a possibly empty sequence of _selectors_.
+
+   json-path = root-selector *(S (dot-selector        /
+                                  dot-wild-selector   /
+                                  index-selector      /
+                                  index-wild-selector /
+                                  list-selector       /
+                                  slice-selector      /
+                                  descendant-selector /
+                                  filter-selector))
+
+
+Ventura, J.					Sun, Mar 27th	2022
+=========================================================================*/
+
+
+

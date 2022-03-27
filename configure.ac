@@ -29,5 +29,7 @@ AC_CONFIG_FILES([
 	calc2/Makefile
 	calc3/Makefile
 	calc4/Makefile
+	calc5/Makefile
+	jsonpath/Makefile
 ])
 AC_OUTPUT

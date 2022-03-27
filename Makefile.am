@@ -6,4 +6,6 @@ SUBDIRS=inline \
 	calc1 \
 	calc2 \
 	calc3 \
-	calc4
+	calc4 \
+	calc5 \
+	jsonpath
