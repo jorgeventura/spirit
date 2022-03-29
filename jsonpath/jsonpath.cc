@@ -9,15 +9,6 @@
 #include <string>
 #include "jsonpath.hpp"
 
-bool jsonpath::parser::parse(std::string qs, jsonpath::ast::nodelist& nd)
-{
-   std::string::const_iterator it = qs.begin();
-   std::string::const_iterator const end = qs.end();
-   
-   auto& jsonpath_parser = jsonpath::parser::jsonpath;
-
-   return phrase_parse(it, end, jsonpath_parser, x3::space, nd);
-}
 
 int main()
 {
@@ -34,8 +25,10 @@ int main()
    boost::json::error_code ec;
    boost::json::value jv = boost::json::parse(s, ec);
    //----------------------------------------------
-   jsonpath::ast::nodelist result(&jv);
-   std::string qs = { "$.test" };
+   jsonpath::ast::nodelist result(jv);
+
+   std::string qs = { "$.book" };
+   //std::string qs = { "$" };
 
    bool r = jsonpath::parser::parse(qs, result);
 
