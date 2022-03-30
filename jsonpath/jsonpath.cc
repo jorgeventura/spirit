@@ -28,12 +28,16 @@ int main()
    //----------------------------------------------
    jsonpath::ast::nodelist result(jv);
 
-   //std::string qs = { "$.book" };
-   std::string qs = { "$" };
+   //std::string qs = { "$.XXX" };
+   std::string qs = { "$.store.books" };
 
-   //bool r = jsonpath::parser::parse(qs, result);
+   bool r = jsonpath::parser::parse(qs, result);
 
    std::cout << "Node list size: " << result.node_list_.size() << std::endl;
+
+   for (auto& jv : result.node_list_) {
+       std::cout << jv << std::endl;
+   }
 
    return 0;
 }
