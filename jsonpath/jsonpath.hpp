@@ -11,8 +11,12 @@
 #include <boost/spirit/home/x3.hpp>
 #include <boost/json.hpp>
 #include <boost/fusion/include/adapt_struct.hpp>
+#include <boost/property_tree/ptree.hpp>
+#include <boost/property_tree/json_parser.hpp>
 
 #include <deque>
+#include <sstream>
+
 //#include <boost/fusion/include/vector.hpp>
 //#include <boost/fusion/algorithm.hpp>
 
@@ -26,17 +30,25 @@ namespace jsonpath {
    namespace ast {
 
       struct nodelist {
+	 boost::property_tree::ptree json_tree;		// JSON tree representation
+	 std::deque<boost::property_tree::ptree> ptree_list_;
+
          std::deque<boost::json::value> node_list_;	// The query result
 
 	 nodelist(boost::json::value& jv)
 	 {
-            node_list_.push_back(jv);
+	    std::stringstream js;
+	    js << jv;
+	    std::istream is(js.rdbuf());
+
+	    boost::property_tree::json_parser::read_json(is, json_tree);
          }
 
 
 	 void root_select(const char c)
 	 {
 	    std::cout << "root_select" << std::endl;
+	    ptree_list_.push_back(json_tree);
 	 }
 
 

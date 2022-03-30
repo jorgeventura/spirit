@@ -24,13 +24,14 @@ int main()
    // JSON setup
    boost::json::error_code ec;
    boost::json::value jv = boost::json::parse(s, ec);
+    
    //----------------------------------------------
    jsonpath::ast::nodelist result(jv);
 
-   std::string qs = { "$.book" };
-   //std::string qs = { "$" };
+   //std::string qs = { "$.book" };
+   std::string qs = { "$" };
 
-   bool r = jsonpath::parser::parse(qs, result);
+   //bool r = jsonpath::parser::parse(qs, result);
 
    std::cout << "Node list size: " << result.node_list_.size() << std::endl;
 
