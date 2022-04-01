@@ -34,6 +34,9 @@ int main()
    bool r = jsonpath::parser::parse(qs, result);
 
    std::cout << "Node list size: " << result.node_list_.size() << std::endl;
+   std::cout << "Selector list size: " << jsonpath::ast::selector::sel_list_.size() << std::endl;
+
+   std::cout << jsonpath::ast::selector::full_selector() << std::endl;
 
    for (auto& jv : result.node_list_) {
        std::cout << jv << std::endl;

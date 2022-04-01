@@ -29,8 +29,34 @@ namespace x3 = boost::spirit::x3;
 namespace jsonpath {
     namespace ast {
 
+        namespace selector {
+            enum selId {
+                root = 0,       // '$'
+                dot,            // '.' or '.name'
+                dot_wild,       // '.*'
+            };
+            
+            struct sel {
+                selId id;
+                std::string element;
+                sel(selId i, std::string ele) : id(i), element(ele) {}
+                sel(selId i, const char ele) : id(i), element(std::string(1,ele)) {}
+            };
+
+
+            std::vector<jsonpath::ast::selector::sel> sel_list_;
+            
+            std::string full_selector()
+            {
+                std::string fsel;
+                for (const auto& sel : sel_list_) {
+                    fsel += sel.element;
+                }
+                return fsel;
+            }
+        }
+
         struct nodelist {
-            //boost::property_tree::ptree json_tree;	// JSON tree representation (maybe removed)
             std::deque<boost::property_tree::ptree> ptree_list_;
 
             std::deque<boost::json::value> node_list_;	// The query result
@@ -44,20 +70,12 @@ namespace jsonpath {
 
                 boost::property_tree::json_parser::read_json(is, jt);
                 ptree_list_.push_back(jt);
-
-                //for (const auto& ele : jt) {
-                //    std::cout << ele.first << std::endl;
-                //}
-                
             }
 
 
             void root_select(const char c)
             {
                 std::cout << "root_select" << std::endl;
-                //if (c == '$') {
-                   // already there
-                //}
             }
 
 
@@ -84,6 +102,8 @@ namespace jsonpath {
     }
 
     namespace parser {
+        namespace selector = jsonpath::ast::selector;
+        
         struct jsonpath_class;
 
         x3::rule<jsonpath_class, jsonpath::ast::nodelist> const jsonpath("jsonpath");
@@ -92,8 +112,8 @@ namespace jsonpath {
         x3::rule<struct root_selector, char> const root_selector_ = "root";
         x3::rule<struct dot_selector, std::string> dot_selector_ = "dot";
 
-        auto root_action = [](auto& ctx) { _val(ctx).root_select(_attr(ctx)); };
-        auto dot_action = [](auto& ctx) { _val(ctx).dot_select(_attr(ctx)); };
+        auto root_action = [](auto& ctx) { selector::sel_list_.push_back(selector::sel(selector::selId::root, _attr(ctx))); };
+        auto dot_action = [](auto& ctx) { selector::sel_list_.push_back(selector::sel(selector::selId::dot, _attr(ctx))); };
 
         const auto root_selector__def = x3::char_("$");
         const auto dot_selector__def = x3::char_(".") >> +x3::alpha;
