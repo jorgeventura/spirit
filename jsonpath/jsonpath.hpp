@@ -33,7 +33,13 @@ namespace jsonpath {
             enum selId {
                 root = 0,       // '$'
                 dot,            // '.' or '.name'
-                dot_wild,       // '.*'
+                dotw,           // '.*'
+                idxs,           // "[" S (quoted-member-name | element-index) S "]"
+                idxw,           // "[" "*" "]"
+                lsts,
+                slice,
+                desc,
+                filter
             };
             
             struct sel {
@@ -72,12 +78,10 @@ namespace jsonpath {
                 ptree_list_.push_back(jt);
             }
 
-
             void root_select(const char c)
             {
                 std::cout << "root_select" << std::endl;
             }
-
 
             void dot_select(std::string qs)
             {
@@ -111,23 +115,44 @@ namespace jsonpath {
         /* Rules defined */
         x3::rule<struct root_selector, char> const root_selector_ = "root";
         x3::rule<struct dot_selector, std::string> dot_selector_ = "dot";
+        x3::rule<struct dotw_selector, std::string> dotw_selector_ = "dotw";
+        x3::rule<struct idxs_selector, std::string> idxs_selector_ = "idxs";
+        x3::rule<struct idxw_selector, std::string> idxw_selector_ = "idxw";
+        x3::rule<struct lsts_selector, std::string> lsts_selector_ = "lsts";
 
         auto root_action = [](auto& ctx) { selector::sel_list_.push_back(selector::sel(selector::selId::root, _attr(ctx))); };
         auto dot_action = [](auto& ctx) { selector::sel_list_.push_back(selector::sel(selector::selId::dot, _attr(ctx))); };
+        auto dotw_action = [](auto& ctx) { selector::sel_list_.push_back(selector::sel(selector::selId::dotw, _attr(ctx))); };
+        auto idxs_action = [](auto& ctx) { selector::sel_list_.push_back(selector::sel(selector::selId::idxs, _attr(ctx))); };
+        auto idxw_action = [](auto& ctx) { selector::sel_list_.push_back(selector::sel(selector::selId::idxw, _attr(ctx))); };
+        auto lsts_action = [](auto& ctx) { selector::sel_list_.push_back(selector::sel(selector::selId::lsts, _attr(ctx))); };
 
         const auto root_selector__def = x3::char_("$");
         const auto dot_selector__def = x3::char_(".") >> +x3::alpha;
-
+        const auto dotw_selector__def = x3::char_(".") >> x3::char_("*");
+        const auto idxs_selector__def = x3::char_("[") >> (+x3::alpha | +x3::digit) >> x3::char_("]");
+        const auto idxw_selector__def = x3::char_("[") >> x3::char_("*") >> x3::char_("]");
+        const auto lsts_selector__def = x3::lit("end");
 
         const auto jsonpath_def = 
             // Begin grammar
-            root_selector_[root_action]
-            >> *dot_selector_[dot_action]
+                root_selector_[root_action]
+            >> *(
+                    dot_selector_[dot_action]           |
+                    dotw_selector_[dotw_action]         |
+                    idxs_selector_[idxs_action]         |
+                    idxw_selector_[idxw_action]         |
+                    lsts_selector_[lsts_action]
+                )
             // End Gramar
             ;
 
         BOOST_SPIRIT_DEFINE(root_selector_);
         BOOST_SPIRIT_DEFINE(dot_selector_);
+        BOOST_SPIRIT_DEFINE(dotw_selector_);
+        BOOST_SPIRIT_DEFINE(idxs_selector_);
+        BOOST_SPIRIT_DEFINE(idxw_selector_);
+        BOOST_SPIRIT_DEFINE(lsts_selector_);
         BOOST_SPIRIT_DEFINE(jsonpath);
 
         inline bool parse(std::string qs, jsonpath::ast::nodelist& nd)

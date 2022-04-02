@@ -28,8 +28,8 @@ int main()
    //----------------------------------------------
    jsonpath::ast::nodelist result(jv);
 
-   //std::string qs = { "$.XXX" };
-   std::string qs = { "$.store.books" };
+   //std::string qs = { "$.*" };
+   std::string qs = { "$.store.books.*.test" };
 
    bool r = jsonpath::parser::parse(qs, result);
 
