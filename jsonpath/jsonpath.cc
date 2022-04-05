@@ -29,7 +29,10 @@ int main()
    std::vector<boost::json::value> result;
 
    //std::string qs = { "$" };
-   std::string qs = { "$.store.books.*.test" };
+   //std::string qs = { "$.store" };
+   //std::string qs = { "$.store.bicycle" };
+   //std::string qs = { "$.store.book" };
+   std::string qs = { "$.store.book.author" };
 
    // qs = jsonpath query string
    // jv = json object for the query
@@ -37,14 +40,10 @@ int main()
    bool r = jsonpath::parser::parse(qs, jv, result);
 
    std::cout << "Node list size: " << result.size() << std::endl;
-   //std::cout << "Selector list size: " << jsonpath::ast::selector::sel_list_.size() << std::endl;
-   /*
-   std::cout << jsonpath::ast::selector::full_selector() << std::endl;
 
    for (auto& jv : result) {
        std::cout << jv << std::endl;
    }
-   */
 
    return 0;
 }
