@@ -26,13 +26,13 @@ int main()
    boost::json::value jv = boost::json::parse(s, ec);
     
    //----------------------------------------------
-   jsonpath::parser::json_vector result;
+   std::vector<boost::json::value> result;
 
-   //std::string qs = { "$" };
+   std::string qs = { "$" };
    //std::string qs = { "$.store" };
    //std::string qs = { "$.store.bicycle" };
    //std::string qs = { "$.store.book" };
-   std::string qs = { "$.store.*" };
+   //std::string qs = { "$.store.*" };
 
    // qs = jsonpath query string
    // jv = json object for the query
@@ -42,8 +42,9 @@ int main()
    std::cout << "Node list size: " << result.size() << std::endl;
 
    for (auto& jv : result) {
-       std::cout << std::get<boost::json::value>(jv) << std::endl;
+       std::cout << jv << std::endl;
    }
+
 
    return 0;
 }

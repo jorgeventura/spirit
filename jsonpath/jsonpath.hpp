@@ -17,6 +17,7 @@
 #include <deque>
 #include <variant>
 #include <sstream>
+#include <functional>
 
 //#include <boost/fusion/include/vector.hpp>
 //#include <boost/fusion/algorithm.hpp>
@@ -68,6 +69,8 @@ namespace jsonpath {
     }
 
     namespace parser {
+        typedef boost::property_tree::basic_ptree<std::string, boost::json::value> json_tree;
+
         namespace selector = jsonpath::ast::selector;
 
         struct jsonpath_class;
@@ -144,36 +147,106 @@ namespace jsonpath {
         BOOST_SPIRIT_DEFINE(desc_selector_);
         BOOST_SPIRIT_DEFINE(filter_selector_);
         BOOST_SPIRIT_DEFINE(jsonpath);
-            
-        void init_ptree(boost::json::value& jv, std::deque<boost::property_tree::ptree>& pt)
+
+
+        struct f_visit {
+            json_tree jtree;
+
+            void kv(boost::json::value v) { std::cout << "value: " << boost::json::serialize(v) << std::endl; };
+
+            void kv(bool b) { std::cout << "bool: " << b << std::endl; };
+            void kv(double d) { std::cout << "double: " << d << std::endl; };
+            void kv(std::int64_t i) { std::cout << "int64: " << i << std::endl; };
+            void kv(std::uint64_t ui) { std::cout << "uint64: " << ui << std::endl; };
+            void kv(boost::json::array a) { std::cout << "array: " << boost::json::serialize(a) << std::endl; };
+            void kv(boost::json::string s) { std::cout << "string: " << s << std::endl; };
+            void kv(boost::json::string_view k, boost::json::value v)
+            { 
+                std::cout << "object: " << k << " -> " << boost::json::serialize(v) << std::endl; 
+            };
+        };
+
+        void visit(f_visit fv, boost::json::value const& jv)
         {
-            std::stringstream js;
-            boost::property_tree::ptree jt;
+            if (jv.is_object()) {
+                auto const& obj = jv.get_object();
+                if(!obj.empty())
+                {
+                    // Split to process the same level
+                    for(auto it = obj.begin(); it != obj.end(); ++it) {
+                        fv.kv(it->key(), it->value());
+                    }
+                    
+                    // Split to process the same level
+                    for(auto it = obj.begin(); it != obj.end(); ++it) {
+                        visit(fv, it->value());
+                    }
+                }
+            } else
+            if (jv.is_array()) {
+                auto const& arr = jv.get_array();
+                if(!arr.empty())
+                {
+                    fv.kv(arr);
+                    // Split to process the same level
+                    for(auto it = arr.begin(); it != arr.end(); ++it) {
+                        fv.kv(*it);
+                    }
 
-            js << jv;
-            std::istream is(js.rdbuf());
-
-            boost::property_tree::json_parser::read_json(is, jt);
-            pt.push_back(jt);
+                    // Split to process the same level
+                    for(auto it = arr.begin(); it != arr.end(); ++it) {
+                        visit(fv, *it);
+                    }
+                }
+            } 
+            /*
+            else
+            if (jv.is_string()) {
+                fv.kv(jv.get_string());
+            } else
+            if (jv.is_int64()) {
+                fv.kv(jv.get_int64());
+            } else
+            if (jv.is_uint64()) {
+                fv.kv(jv.get_uint64());
+            } else
+            if (jv.is_double()) {
+                fv.kv(jv.get_double());
+            } else
+            if (jv.is_bool()) {
+                fv.kv(jv.get_bool());
+            } else
+            if (jv.is_null()) {
+                fv.kv("null");
+            }
+            */
         }
 
-        typedef std::variant<boost::json::value,
-            boost::json::string,
-            boost::json::object,
-            boost::json::array>    json_variant;
+        void init_json_tree(boost::json::value& jv, std::deque<json_tree>& pt)
+        {
+            json_tree jtree;
+            jtree.put_value(jv);
+            pt.push_back(jtree);
+        }
 
-        typedef std::vector<jsonpath::parser::json_variant> json_vector;
 
-        bool parse(std::string qs, boost::json::value& jv, std::vector<jsonpath::parser::json_variant>& res)
+
+        bool parse(std::string qs, boost::json::value& jv, std::vector<boost::json::value>& res)
         {
             std::string::const_iterator iter = qs.begin();
             std::string::const_iterator const end = qs.end();
+            
+                //std::cout << k << std::endl; 
+                //std::cout << boost::json::serialize(v) << std::endl; 
+            visit(f_visit(), jv);
 
             bool r = x3::parse(iter, end, jsonpath::parser::jsonpath, sl_);
                 
             // Init property tree with initial json value
-            std::deque<boost::property_tree::ptree> pt;
-            init_ptree(jv, pt);
+            //std::deque<boost::property_tree::ptree> pt;
+            std::deque<json_tree> pt;
+            init_json_tree(jv, pt);
+
 
             if (r && (iter == end)) {
                 namespace selId = jsonpath::ast::selector;
@@ -192,35 +265,15 @@ namespace jsonpath {
                                 std::string tname(it, s.element.end());
 
                                 for (int i = 0; i < sz; i++) {
-                                    boost::property_tree::ptree& jp = pt.front();
+                                    json_tree& jp = pt.front();
                                         
                                     for (const auto& ele : jp) {
                                         if (ele.first == tname) {
-                                            // The element is a vector
-                                            if (ele.second.size() > 2) {
-                                                boost::property_tree::ptree array;
-                                                boost::property_tree::ptree items;
-
-                                                for (const auto& v : ele.second) {
-                                                    items.push_back(v);
-                                                }
-                                                array.push_back(boost::property_tree::ptree::value_type("", items));
-                                                pt.push_back(array);
-                                            } else {
-                                                // Check if the element is an item
-                                                if (ele.second.size() > 0) {
-                                                   pt.push_back(ele.second);
-                                                } else {
-                                                   // Create new json obj { item: value }
-                                                   boost::property_tree::ptree jpv;
-                                                   jpv.put(ele.first, ele.second.data());
-                                                   pt.push_back(jpv);
-                                                }
-                                            }
+                                            pt.push_back(ele.second);
                                         }
                                     }
 
-                                    if (pt.size() > sz) {
+                                    if (pt.size() != sz) {
                                        pt.erase(pt.begin());
                                     }
                                 }
@@ -230,37 +283,15 @@ namespace jsonpath {
                         case selId::dotw: 
                             {
                                 size_t sz = pt.size();
-                                std::string::const_iterator it = ++(s.element.cbegin());
-                                std::string tname(it, s.element.end());
 
                                 for (int i = 0; i < sz; i++) {
-                                    boost::property_tree::ptree& jp = pt.front();
+                                    json_tree& jp = pt.front();
                                         
                                     for (const auto& ele : jp) {
-                                        // The element is a vector
-                                        if (ele.second.size() > 2) {
-                                            boost::property_tree::ptree array;
-                                            boost::property_tree::ptree items;
-
-                                            for (const auto& v : ele.second) {
-                                                items.push_back(v);
-                                            }
-                                            array.push_back(boost::property_tree::ptree::value_type("", items));
-                                            pt.push_back(array);
-                                        } else {
-                                            // Check if the element is an item
-                                            if (ele.second.size() > 0) {
-                                                pt.push_back(ele.second);
-                                            } else {
-                                                // Create new json obj { item: value }
-                                                boost::property_tree::ptree jpv;
-                                                jpv.put(ele.first, ele.second.data());
-                                                pt.push_back(jpv);
-                                            }
-                                        }
+                                        pt.push_back(ele.second);
                                     }
 
-                                    if (pt.size() > sz) {
+                                    if (pt.size() != sz) {
                                        pt.erase(pt.begin());
                                     }
                                 }
@@ -301,26 +332,7 @@ namespace jsonpath {
 
 
                 for (const auto& jt : pt) {
-                    // Convert from json tree element to json string
-                    if (jt.size() > 0) {
-                        std::stringstream js;
-                        boost::property_tree::json_parser::write_json(js, jt);
-
-                        // Convert from json string to jason value
-                        boost::json::error_code ec;
-                        boost::json::value jv = boost::json::parse(js.str(), ec);
-
-                        // Add to result node list (vector)
-                        res.push_back(jv);
-                    } 
-                    /*
-                    else {
-                        std::cout << jt.size() << std::endl;
-                        for (const auto& e : jt) {
-                            std::cout << e.first << std::endl;
-                        }
-                    }
-                    */
+                     res.push_back(jv);
                 }
 
                 std::cout << "-------------------------\n";
@@ -346,46 +358,3 @@ jsonpath::ast::selector::selList,
 
 #endif	// JSONPATH_HPP
 
-/*
-        struct nodelist {
-            std::deque<boost::property_tree::ptree> ptree_list_;
-
-            std::deque<boost::json::value> node_list_;	// The query result
-
-            nodelist(boost::json::value& jv)
-            {
-                std::stringstream js;
-                boost::property_tree::ptree jt;
-                js << jv;
-                std::istream is(js.rdbuf());
-
-                boost::property_tree::json_parser::read_json(is, jt);
-                ptree_list_.push_back(jt);
-            }
-
-            void root_select(const char c)
-            {
-                std::cout << "root_select" << std::endl;
-            }
-
-            void dot_select(std::string qs)
-            {
-                std::cout << "dot_select" << std::endl;
-                size_t sz = ptree_list_.size();
-
-                std::string tname(++qs.begin(), qs.end());
-
-                for (int i = 0; i < sz; i++) {
-                    boost::property_tree::ptree& jp = ptree_list_.front();
-
-                    for (const auto& ele : jp) {
-                        if (ele.first == tname) {
-                           ptree_list_.push_back(ele.second);
-                        }
-                    }
-
-                    ptree_list_.erase(ptree_list_.begin());
-                }
-            }
-        };
-*/
