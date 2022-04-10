@@ -10,7 +10,7 @@
 #include "jsonpath.hpp"
 
 
-int main()
+int main(int argc, char* argv[])
 {
    //----------------------------------------------
    // Read input file to string
@@ -29,11 +29,14 @@ int main()
    std::vector<boost::json::value> result;
 
    //std::string qs = { "$" };
-   std::string qs = { "$[\"store\"]['book'][0]['price']" };
+   //std::string qs = { "$[\"store\"]['book'][0]['price']" };
+   //std::string qs = { "$[\"store\"]['book'][*]['author']" };
+   //std::string qs = { "$.store.book[1:3]" };
    //std::string qs = { "$.store" };
    //std::string qs = { "$.store.bicycle.*" };
    //std::string qs = { "$.store.book.*" };
    //std::string qs = { "$.store.*" };
+   std::string qs(argv[1]);
    
    //std::string qs = { "$.address[\"city\"]" };
    //std::string qs = { "$.phoneNumbers[0][\"type\"]" };

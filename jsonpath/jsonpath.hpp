@@ -22,6 +22,8 @@
 #include <string_view>
 #include <functional>
 
+#define DD  std::cout << "I am here" << std::endl
+
 //#include <boost/fusion/include/vector.hpp>
 //#include <boost/fusion/algorithm.hpp>
 
@@ -39,10 +41,10 @@ namespace jsonpath {
                 root = 0,       // '$'
                 dot,            // '.' or '.name'
                 dotw,           // '.*'
-                idxs,           // "[" S (quoted-member-name | element-index) S "]"
                 idxw,           // "[" "*" "]"
+                indx,           // "[" S (quoted-member-name | element-index) S "]"
+                slice,          // "[" i ":" j ":" "k" "]"
                 lsts,
-                slice,
                 desc,
                 filter
             };
@@ -50,15 +52,20 @@ namespace jsonpath {
             struct sel {
                 selId id;
                 std::string element;
-                int index;
-    
-                sel(selId i, std::string ele) : id(i), index(0), element(ele) {}
-                sel(selId i, const char ele) : id(i), index(0), element(std::string(1,ele)) {}
-                sel(selId i, int j) : id(i), index(j) {}
-                sel(selId i, boost::variant<std::string, std::string>& ele) : 
-                        id(i), index(0), element(boost::get<std::string>(ele)) {}
-            };
+                int index, end, step;
 
+                sel() {}
+    
+                sel(selId i, std::string ele) : id(i), index(0), element(ele)
+                { std::cout << id << ": sel(selId i, std::string ele) " << ele << std::endl; }
+                
+                sel(selId i, const char ele) : id(i), index(0), element(std::string(1,ele))
+                { std::cout << id << ": sel(selId i, const char ele)" << std::endl; }
+                
+                sel(selId i, int j) : id(i), index(j)
+                { std::cout << id << ": sel(selId i, int j)" << std::endl; }
+            };
+            
             struct selList {
                 std::vector<jsonpath::ast::selector::sel> slist;
             };
@@ -76,7 +83,6 @@ namespace jsonpath {
     }
 
     namespace parser {
-        //typedef boost::property_tree::basic_ptree<std::string, boost::json::object::iterator> json_tree;
 
         namespace selector = jsonpath::ast::selector;
 
@@ -91,48 +97,56 @@ namespace jsonpath {
         x3::rule<struct root_selector, char> const root_selector_ = "root";
         x3::rule<struct dot_selector, std::string> dot_selector_ = "dot";
         x3::rule<struct dotw_selector, std::string> dotw_selector_ = "dotw";
+        x3::rule<struct idxw_selector, std::string> idxw_selector_ = "idxw";
 
+        // index-selector for number
+        x3::rule<struct idxn_selector, int> idxn_selector_ = "idxn";
+        // index-selector for strings
         x3::rule<struct idxs_selector, std::string> idxs_selector_ = "idxs";
 
-        x3::rule<struct idxw_selector, std::string> idxw_selector_ = "idxw";
-        x3::rule<struct lsts_selector, std::string> lsts_selector_ = "lsts";
         x3::rule<struct slice_selector, std::string> slice_selector_ = "slice";
+        x3::rule<struct lsts_selector, std::string> lsts_selector_ = "lsts";
         x3::rule<struct desc_selector, std::string> desc_selector_ = "desc";
         x3::rule<struct filter_selector, std::string> filter_selector_ = "filter";
 
         auto root_action    = [](auto& ctx) { sl_.slist.push_back(selector::sel(selector::selId::root, _attr(ctx))); };
         auto dot_action     = [](auto& ctx) { sl_.slist.push_back(selector::sel(selector::selId::dot, _attr(ctx))); };
         auto dotw_action    = [](auto& ctx) { sl_.slist.push_back(selector::sel(selector::selId::dotw, _attr(ctx))); };
-        auto idxs_action    = [](auto& ctx) { sl_.slist.push_back(selector::sel(selector::selId::idxs, _attr(ctx))); };
         auto idxw_action    = [](auto& ctx) { sl_.slist.push_back(selector::sel(selector::selId::idxw, _attr(ctx))); };
-        auto lsts_action    = [](auto& ctx) { sl_.slist.push_back(selector::sel(selector::selId::lsts, _attr(ctx))); };
+        auto indx_action    = [](auto& ctx) { sl_.slist.push_back(selector::sel(selector::selId::indx, _attr(ctx))); };
         auto slice_action   = [](auto& ctx) { sl_.slist.push_back(selector::sel(selector::selId::slice, _attr(ctx))); };
+        auto lsts_action    = [](auto& ctx) { sl_.slist.push_back(selector::sel(selector::selId::lsts, _attr(ctx))); };
         auto desc_action    = [](auto& ctx) { sl_.slist.push_back(selector::sel(selector::selId::desc, _attr(ctx))); };
         auto filter_action  = [](auto& ctx) { sl_.slist.push_back(selector::sel(selector::selId::filter, _attr(ctx))); };
 
         // root-selector
-        const auto root_selector__def = x3::char_("$");
+        const auto root_selector__def = x3::char_('$');
         // dot-selector
-        const auto dot_selector__def = x3::char_(".") >> +x3::alpha;
+        const auto dot_selector__def = x3::char_('.') >> +x3::alpha;
         // dot-wild-selector
-        const auto dotw_selector__def = x3::char_(".") >> x3::char_("*");
+        const auto dotw_selector__def = x3::char_('.') >> x3::char_('*');
+        // index-wild-selector
+        const auto idxw_selector__def = '[' >> x3::char_('*') >> ']';
 
-        // index-selector
+        // index-selector for numbers
         const auto element_index = x3::int_;
         
-        const auto double_quoted = "\"" >> +x3::alpha >> "\"";
-        const auto single_quoted = "'" >> +x3::alpha >> "'";
+        // index-selector for string
+        const auto double_quoted = '\"' >> +x3::alpha >> '\"';
+        const auto single_quoted = '\'' >> +x3::alpha >> '\'';
         const auto string_literal = double_quoted | single_quoted;
         const auto quoted_member_name = string_literal;
 
-        const auto idxs_selector__def = "[" >> (element_index[idxs_action] | quoted_member_name[idxs_action]) >> "]";
+        // split index selector in two rules
+        // to avoid variant atrribute
+        const auto idxn_selector__def = '[' >> element_index >> ']';
+        const auto idxs_selector__def = '[' >> quoted_member_name >> ']';
 
-        // index-wild-selector
-        const auto idxw_selector__def = x3::char_("[") >> x3::char_("*") >> x3::char_("]");
+        // slice-selector
+        //const auto slice_selector__def = "[" >> x3::int_ >> ":" >> x3::int_ >> -(":" >> x3::int_) >> "]";
+        const auto slice_selector__def = x3::lit("end");
         // list-selector
         const auto lsts_selector__def = x3::lit("end");
-        // slice-selector
-        const auto slice_selector__def = x3::lit("end");
         // descendant-selector
         const auto desc_selector__def = x3::lit("end");
         // filter-selector
@@ -144,12 +158,15 @@ namespace jsonpath {
             >> *(
                     dot_selector_[dot_action]       |
                     dotw_selector_[dotw_action]     |
-                    idxs_selector_                  |
                     idxw_selector_[idxw_action]     |
-                    lsts_selector_[lsts_action]     |
+                    
+                    idxs_selector_[indx_action]     |
+                    idxn_selector_[indx_action]     |
+                    
                     slice_selector_[slice_action]   |
+                    lsts_selector_[lsts_action]     |
                     desc_selector_[desc_action]     |
-                    filter_selector_[lsts_action]
+                    filter_selector_[filter_action]
                 )
             // End Gramar
             ;
@@ -157,10 +174,13 @@ namespace jsonpath {
         BOOST_SPIRIT_DEFINE(root_selector_);
         BOOST_SPIRIT_DEFINE(dot_selector_);
         BOOST_SPIRIT_DEFINE(dotw_selector_);
-        BOOST_SPIRIT_DEFINE(idxs_selector_);
         BOOST_SPIRIT_DEFINE(idxw_selector_);
-        BOOST_SPIRIT_DEFINE(lsts_selector_);
+
+        BOOST_SPIRIT_DEFINE(idxn_selector_);
+        BOOST_SPIRIT_DEFINE(idxs_selector_);
+
         BOOST_SPIRIT_DEFINE(slice_selector_);
+        BOOST_SPIRIT_DEFINE(lsts_selector_);
         BOOST_SPIRIT_DEFINE(desc_selector_);
         BOOST_SPIRIT_DEFINE(filter_selector_);
         BOOST_SPIRIT_DEFINE(jsonpath);
@@ -194,7 +214,6 @@ namespace jsonpath {
                                 size_t sz = pt.size();
                                 std::string::const_iterator it = ++(s.element.cbegin());
                                 std::string tname(it, s.element.end());
-
 
                                 for (int i = 0; i < sz; i++) {
                                     json::value& jv = pt.front();
@@ -272,27 +291,25 @@ namespace jsonpath {
                             }
                             break;
 
-                        case selId::idxs:
+                        case selId::indx:
                             {
                                 size_t sz = pt.size();
 
-                                if (s.element.empty()) {
+                                if (s.element.empty()) { // index is number
                                     for (int i = 0; i < sz; i++) {
                                         json::value& jv = pt.front();
-                                        
                                         if (jv.is_array()) {
                                             auto const& arr = jv.get_array();
                                             if(!arr.empty() && s.index < arr.size())
                                             {
                                                 pt.push_back(arr[s.index]);
                                             }
+                                            pt.erase(pt.begin());
                                         }
-                                        pt.erase(pt.begin());
                                     }
                                 } else {
-                                    for (int i = 0; i < sz; i++) {
+                                    for (int i = 0; i < sz; i++) { // index is string
                                         json::value& jv = pt.front();
-
                                         auto& obj = jv.get_object();
                                         if (!obj[s.element].is_null()) {
                                             pt.push_back(obj[s.element]);
@@ -303,12 +320,14 @@ namespace jsonpath {
                             }
                             break;
 
-                        case selId::lsts:
+                        case selId::slice:
                             {
+                                std::cout << "slice-selector" << std::endl;
+                                pt.erase(pt.begin());
                             }
                             break;
 
-                        case selId::slice:
+                        case selId::lsts:
                             {
                             }
                             break;
