@@ -52,28 +52,37 @@ namespace jsonpath {
             struct sel {
                 selId id;
                 std::string element;
-                int index, end, step;
+                std::vector<int> indx;
 
-                sel() {}
-    
-                sel(selId i, std::string ele) : id(i), index(0), element(ele)
+                sel(selId i, std::string ele) : id(i), element(ele)
                 { std::cout << id << ": sel(selId i, std::string ele) " << ele << std::endl; }
                 
-                sel(selId i, const char ele) : id(i), index(0), element(std::string(1,ele))
+                sel(selId i, const char ele) : id(i), element(std::string(1,ele))
                 { std::cout << id << ": sel(selId i, const char ele)" << std::endl; }
                 
-                sel(selId i, int j) : id(i), index(j)
-                { std::cout << id << ": sel(selId i, int j)" << std::endl; }
+                sel(selId i, int j) : id(i)
+                { 
+                    std::cout << id << ": sel(selId i, int j)" << std::endl;
+                    indx.push_back(j);
+
+                }
                 
                 sel(selId i, boost::variant<std::string, int> ele) : id(i)
                 {
                     std::cout << id << ": sel(selId i, boost::variant<std::string, int> ele)" << std::endl;
 
                     if (ele.type() == typeid(int)) {
-                        index = boost::get<int>(ele);
+                        indx.push_back(boost::get<int>(ele));
                     } else {
                         element = boost::get<std::string>(ele);
                     }
+                }
+                
+                sel(selId i, std::vector<int> ele) : id(i), indx(ele)
+                {
+                    std::cout << id << ": sel(selId i, std::vector<int> ele)" << std::endl;
+                    for (int j : indx)
+                        std::cout << j << std::endl;
                 }
             };
             
@@ -85,7 +94,7 @@ namespace jsonpath {
             {
                 std::string fsel;
                 for (const auto& sel : sl.slist) {
-                    //fsel += sel.element;
+                    fsel += sel.element;
                 }
                 return fsel;
             }
@@ -113,7 +122,7 @@ namespace jsonpath {
         // index-selector for number
         x3::rule<struct indx_selector, boost::variant<std::string, int>> indx_selector_ = "indx";
 
-        x3::rule<struct slice_selector, std::string> slice_selector_ = "slice";
+        x3::rule<struct slice_selector, std::vector<int>> slice_selector_ = "slice";
         x3::rule<struct lsts_selector, std::string> lsts_selector_ = "lsts";
         x3::rule<struct desc_selector, std::string> desc_selector_ = "desc";
         x3::rule<struct filter_selector, std::string> filter_selector_ = "filter";
@@ -152,7 +161,6 @@ namespace jsonpath {
 
         // slice-selector
         const auto slice_selector__def = '[' >> x3::int_ >> ':' >> x3::int_ >> -(':' >> x3::int_) >> ']';
-        //const auto slice_selector__def = x3::lit("end");
         // list-selector
         const auto lsts_selector__def = x3::lit("end");
         // descendant-selector
@@ -304,9 +312,12 @@ namespace jsonpath {
                                         json::value& jv = pt.front();
                                         if (jv.is_array()) {
                                             auto const& arr = jv.get_array();
-                                            if(!arr.empty() && s.index < arr.size())
+                                            
+                                            if(!arr.empty())
                                             {
-                                                pt.push_back(arr[s.index]);
+                                                // The index i never exceed the limit
+                                                int i = (arr.size() + s.indx[0]) % arr.size();
+                                                pt.push_back(arr[i]);
                                             }
                                             pt.erase(pt.begin());
                                         }
@@ -326,8 +337,22 @@ namespace jsonpath {
 
                         case selId::slice:
                             {
-                                std::cout << "slice-selector" << std::endl;
-                                pt.erase(pt.begin());
+                                size_t sz = pt.size();
+                                if (!s.indx.empty()) { // index is number
+                                    for (int i = 0; i < sz; i++) {
+                                        json::value& jv = pt.front();
+                                        if (jv.is_array()) {
+                                            auto const& arr = jv.get_array();
+                                            
+                                            if(!arr.empty() && s.indx[0] < arr.size())
+                                            {
+                                                pt.push_back(arr[s.indx[0]]);
+                                            }
+
+                                            pt.erase(pt.begin());
+                                        }
+                                    }
+                                }
                             }
                             break;
 
