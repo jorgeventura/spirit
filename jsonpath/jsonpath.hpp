@@ -64,6 +64,17 @@ namespace jsonpath {
                 
                 sel(selId i, int j) : id(i), index(j)
                 { std::cout << id << ": sel(selId i, int j)" << std::endl; }
+                
+                sel(selId i, boost::variant<std::string, int> ele) : id(i)
+                {
+                    std::cout << id << ": sel(selId i, boost::variant<std::string, int> ele)" << std::endl;
+
+                    if (ele.type() == typeid(int)) {
+                        index = boost::get<int>(ele);
+                    } else {
+                        element = boost::get<std::string>(ele);
+                    }
+                }
             };
             
             struct selList {
@@ -100,9 +111,7 @@ namespace jsonpath {
         x3::rule<struct idxw_selector, std::string> idxw_selector_ = "idxw";
 
         // index-selector for number
-        x3::rule<struct idxn_selector, int> idxn_selector_ = "idxn";
-        // index-selector for strings
-        x3::rule<struct idxs_selector, std::string> idxs_selector_ = "idxs";
+        x3::rule<struct indx_selector, boost::variant<std::string, int>> indx_selector_ = "indx";
 
         x3::rule<struct slice_selector, std::string> slice_selector_ = "slice";
         x3::rule<struct lsts_selector, std::string> lsts_selector_ = "lsts";
@@ -138,13 +147,12 @@ namespace jsonpath {
         const auto quoted_member_name = string_literal;
 
         // split index selector in two rules
-        // to avoid variant atrribute
-        const auto idxn_selector__def = '[' >> element_index >> ']';
-        const auto idxs_selector__def = '[' >> quoted_member_name >> ']';
+        // to avoid variant atrribute problems
+        const auto indx_selector__def = '[' >> (element_index | quoted_member_name) >> ']';
 
         // slice-selector
-        //const auto slice_selector__def = "[" >> x3::int_ >> ":" >> x3::int_ >> -(":" >> x3::int_) >> "]";
-        const auto slice_selector__def = x3::lit("end");
+        const auto slice_selector__def = '[' >> x3::int_ >> ':' >> x3::int_ >> -(':' >> x3::int_) >> ']';
+        //const auto slice_selector__def = x3::lit("end");
         // list-selector
         const auto lsts_selector__def = x3::lit("end");
         // descendant-selector
@@ -159,10 +167,7 @@ namespace jsonpath {
                     dot_selector_[dot_action]       |
                     dotw_selector_[dotw_action]     |
                     idxw_selector_[idxw_action]     |
-                    
-                    idxs_selector_[indx_action]     |
-                    idxn_selector_[indx_action]     |
-                    
+                    indx_selector_[indx_action]     |
                     slice_selector_[slice_action]   |
                     lsts_selector_[lsts_action]     |
                     desc_selector_[desc_action]     |
@@ -176,8 +181,7 @@ namespace jsonpath {
         BOOST_SPIRIT_DEFINE(dotw_selector_);
         BOOST_SPIRIT_DEFINE(idxw_selector_);
 
-        BOOST_SPIRIT_DEFINE(idxn_selector_);
-        BOOST_SPIRIT_DEFINE(idxs_selector_);
+        BOOST_SPIRIT_DEFINE(indx_selector_);
 
         BOOST_SPIRIT_DEFINE(slice_selector_);
         BOOST_SPIRIT_DEFINE(lsts_selector_);
