@@ -350,30 +350,29 @@ namespace jsonpath {
                                         json::value& jv = pt.front();
                                         if (jv.is_array()) {
                                             auto const& arr = jv.get_array();
-                                            const auto normalize = [](int i, int len) -> int {
-                                                    if (i >= 0)
-                                                        return i;
-                                                    else
-                                                        return len + i;
-                                                };
-                                            
-                                            int len = s.indx[1];
 
-                                            if (len == INT_MAX) {
-                                                len = arr.size();
-                                            }
+                                            const auto normalize = [](int i, int len) -> int {
+                                                if (i >= 0) {
+                                                    return i;
+                                                } else {
+                                                    return len + i;
+                                                }
+                                            };
+
+                                            int n_start = normalize(s.indx[0], arr.size());
+                                            int n_end   = (s.indx[1] == INT_MAX) ? (int)arr.size() : s.indx[1];
+
+                                            n_end       = normalize(n_end, arr.size());
+                                            int step    = s.indx[2];
 
                                             int lower, upper;
-                                            int n_start = normalize(s.indx[0], len);
-                                            int n_end   = normalize(s.indx[1], len);
-                                            int step = s.indx[2];
 
                                             if (step >= 0) {
-                                               lower = std::min(std::max(n_start, 0), len);
-                                               upper = std::min(std::max(n_end, 0), len);
+                                               lower = std::min(std::max(n_start, 0), (int)arr.size());
+                                               upper = std::min(std::max(n_end, 0), (int)arr.size());
                                             } else {
-                                               lower = std::min(std::max(n_start, -1), (len - 1));
-                                               upper = std::min(std::max(n_end, -1), (len - 1));
+                                               lower = std::min(std::max(n_start, -1), ((int)arr.size() - 1));
+                                               upper = std::min(std::max(n_end, -1), ((int)arr.size() - 1));
                                             }
 
                                             if (step > 0) {
