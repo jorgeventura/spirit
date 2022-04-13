@@ -14,7 +14,7 @@ int main(int argc, char* argv[])
 {
    //----------------------------------------------
    // Read input file to string
-   std::string name { "test-05.json" };
+   std::string name { "test-01.json" };
    std::ifstream inp(name);
    std::string s;
 
@@ -24,7 +24,7 @@ int main(int argc, char* argv[])
    // JSON setup
    boost::json::error_code ec;
    boost::json::value jv = boost::json::parse(s, ec);
-    
+
    //----------------------------------------------
    std::vector<boost::json::value> result;
 
