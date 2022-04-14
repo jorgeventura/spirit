@@ -14,7 +14,7 @@ int main(int argc, char* argv[])
 {
    //----------------------------------------------
    // Read input file to string
-   std::string name { "test-01.json" };
+   std::string name { "test-06.json" };
    std::ifstream inp(name);
    std::string s;
 

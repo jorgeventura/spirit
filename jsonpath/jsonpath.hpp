@@ -82,10 +82,15 @@ namespace jsonpath {
                 {
                     std::cout << id << ": sel(selId i, std::vector<int> ele)" << std::endl;
                 }
+                
 
                 friend inline std::ostream& operator<<(std::ostream& out, sel const& sl) 
                 {
-                    out << "slId = " << sl.id << " element: " << sl.element << std::endl;
+                    out << "slId = " << sl.id << " element: " << sl.element << " index: [ ";
+                    for (int i : sl.indx) {
+                        out << i << " ";
+                    }
+                    out << ']' << std::endl;
                     return out;
                 }
             };
@@ -128,7 +133,7 @@ namespace jsonpath {
 
         x3::rule<struct slice_selector, std::vector<int>> slice_selector_ = "slice";
         x3::rule<struct lsts_selector, std::string> lsts_selector_ = "lsts";
-        x3::rule<struct desc_selector, std::string> desc_selector_ = "desc";
+        x3::rule<struct desc_selector, boost::variant<std::string, int>> desc_selector_ = "desc";
         x3::rule<struct filter_selector, std::string> filter_selector_ = "filter";
 
         auto root_action    = [](auto& ctx) { sl_.slist.push_back(selector::sel(selector::selId::root, _attr(ctx))); };
@@ -172,7 +177,7 @@ namespace jsonpath {
         // list-selector (6)
         const auto lsts_selector__def = x3::lit("end");
         // descendant-selector (7)
-        const auto desc_selector__def = x3::string("..*") >> (x3::lit("..[") >> (x3::int_ | '*') >> ']') | (x3::lit("..") >> +x3::alpha);
+        const auto desc_selector__def = (x3::lit("..") >> x3::string("[*]")) | (x3::lit("..[") >> x3::int_ >> ']') | (x3::lit("..") >> (x3::string("*") | +x3::alpha));
         // filter-selector (8)
         const auto filter_selector__def = x3::lit("end");
 
@@ -519,11 +524,70 @@ namespace jsonpath {
                         case selId::desc:
                             {
                                 size_t sz = pt.size();
-                                for (int i = 0; i < sz; i++) {
-                                    json::value& jv = pt.front();
-                                    f_visit fv;
-                                    visit(fv, jv, pt);
-                                    pt.erase(pt.begin());
+                                if (s.element == "*") {
+                                    // catch all tree
+                                    for (int i = 0; i < sz; i++) {
+                                        json::value& jv = pt.front();
+                                        f_visit fv;
+                                        pt.push_back(jv);
+                                        visit(fv, jv, pt);
+                                        pt.erase(pt.begin());
+                                    }
+                                } else
+                                if (s.element == "[*]") {
+                                    // array only
+                                    for (int i = 0; i < sz; i++) {
+                                        json::value& jv = pt.front();
+                                        if (jv.is_array()) {
+                                            f_visit fv;
+                                            visit(fv, jv, pt);
+                                        }
+                                        pt.erase(pt.begin());
+                                    }
+                                } else
+                                if (!s.element.empty()) {
+                                    // dot name only
+                                    for (int i = 0; i < sz; i++) {
+                                        std::deque<boost::json::value> aux;
+                                        json::value& jv = pt.front();
+                                        f_visit fv;
+                                        aux.push_back(jv);
+                                        visit(fv, jv, aux);
+
+                                        for (auto const& obj : aux) {
+                                            if (obj.is_object() && !obj.as_object().empty()) {
+                                                for(auto it = obj.as_object().begin(); it != obj.as_object().end(); ++it) {
+                                                    if (it->key() == s.element) {
+                                                        pt.push_back(it->value());
+                                                    }
+                                                }
+                                            }
+                                        }
+
+                                        pt.erase(pt.begin());
+                                    }
+                                } else
+                                if (!s.indx.empty()) {
+                                    // array by index number
+                                    for (int i = 0; i < sz; i++) {
+                                        json::value& jv = pt.front();
+                                        if (s.indx[0] >= 0) {
+                                            std::deque<boost::json::value> aux;
+                                            f_visit fv;
+                                            aux.push_back(jv);
+                                            visit(fv, jv, aux);
+
+                                            for (auto const& obj : aux) {
+                                                if (obj.is_array() && !obj.as_array().empty()) {
+                                                    if (s.indx[0] < obj.as_array().size()) {
+                                                        pt.push_back(obj.as_array()[s.indx[0]]);
+                                                    }
+                                                }
+                                            }
+                                        }
+
+                                        pt.erase(pt.begin());
+                                    }
                                 }
                             }
                             break;
