@@ -6,7 +6,7 @@
 
 #ifndef	JSONPATH_HPP
 #define	JSONPATH_HPP
-//#define BOOST_SPIRIT_X3_DEBUG
+#define BOOST_SPIRIT_X3_DEBUG
 
 
 #include <boost/spirit/home/x3.hpp>
@@ -82,6 +82,12 @@ namespace jsonpath {
                 {
                     std::cout << id << ": sel(selId i, std::vector<int> ele)" << std::endl;
                 }
+
+                friend inline std::ostream& operator<<(std::ostream& out, sel const& sl) 
+                {
+                    out << "slId = " << sl.id << " element: " << sl.element << std::endl;
+                    return out;
+                }
             };
             
             struct selList {
@@ -135,14 +141,14 @@ namespace jsonpath {
         auto desc_action    = [](auto& ctx) { sl_.slist.push_back(selector::sel(selector::selId::desc, _attr(ctx))); };
         auto filter_action  = [](auto& ctx) { sl_.slist.push_back(selector::sel(selector::selId::filter, _attr(ctx))); };
 
-        // root-selector
+        // root-selector (0)
         const auto root_selector__def = x3::char_('$');
-        // dot-selector
+        // dot-selector (1)
         const auto dot_member_name = x3::char_('.') >> +x3::alpha;
         const auto dot_selector__def = dot_member_name;
-        // dot-wild-selector
-        const auto dotw_selector__def = x3::char_('.') >> x3::char_('*');
-        // index-wild-selector
+        // dot-wild-selector (2)
+        const auto dotw_selector__def = x3::string(".*");
+        // index-wild-selector (3)
         const auto idxw_selector__def = x3::skip(x3::space)['[' >> x3::char_('*') >> ']'];
 
         // index-selector for numbers
@@ -155,19 +161,19 @@ namespace jsonpath {
         const auto quoted_member_name = string_literal;
 
         // split index selector in two rules
-        // to avoid variant atrribute problems
+        // to avoid variant atrribute problems (4)
         const auto indx_selector__def = x3::skip(x3::space)['[' >> (element_index | quoted_member_name) >> ']'];
 
-        // slice-selector [<start>:<end>:<step>]
+        // slice-selector [<start>:<end>:<step>] (5)
         const auto slice_selector__def = x3::skip(x3::space)['[' >> (x3::int_ | x3::attr(0)) >>
              (':' >> x3::int_  | ':' >> x3::attr(INT_MAX)) >>
             ((':' >> x3::int_) | ':' >> x3::attr(1) | x3::attr(1)) >> ']'];
 
-        // list-selector
+        // list-selector (6)
         const auto lsts_selector__def = x3::lit("end");
-        // descendant-selector
-        const auto desc_selector__def = x3::string("..") >> (dot_member_name | indx_selector__def | idxw_selector__def | x3::char_('*'));
-        // filter-selector
+        // descendant-selector (7)
+        const auto desc_selector__def = x3::string("..*") >> (x3::lit("..[") >> (x3::int_ | '*') >> ']') | (x3::lit("..") >> +x3::alpha);
+        // filter-selector (8)
         const auto filter_selector__def = x3::lit("end");
 
         const auto jsonpath_def = 
@@ -203,42 +209,42 @@ namespace jsonpath {
         struct f_visit {
             void kv(boost::json::value v, std::deque<boost::json::value>& pt)
             { 
-                std::cout << "value: " << boost::json::serialize(v) << std::endl;
+                //std::cout << "value: " << boost::json::serialize(v) << std::endl;
                 pt.push_back(v);
             }
             void kv(bool b, std::deque<boost::json::value>& pt) 
             { 
-                std::cout << "bool: " << b << std::endl;
+                //std::cout << "bool: " << b << std::endl;
                 pt.push_back(b);
             }
             void kv(double d, std::deque<boost::json::value>& pt) 
             { 
-                std::cout << "double: " << d << std::endl;
+                //std::cout << "double: " << d << std::endl;
                 pt.push_back(d);
             }
             void kv(std::int64_t i, std::deque<boost::json::value>& pt)
             {
-                std::cout << "int64: " << i << std::endl;
+                //std::cout << "int64: " << i << std::endl;
                 pt.push_back(i);
             }
             void kv(std::uint64_t ui, std::deque<boost::json::value>& pt)
             {
-                std::cout << "uint64: " << ui << std::endl;
+                //std::cout << "uint64: " << ui << std::endl;
                 pt.push_back(ui);
             }
             void kv(boost::json::array a, std::deque<boost::json::value>& pt)
             {
-                std::cout << "array: " << boost::json::serialize(a) << std::endl;
+                //std::cout << "array: " << boost::json::serialize(a) << std::endl;
                 pt.push_back(a);
             }
             void kv(boost::json::string s, std::deque<boost::json::value>& pt)
             {
-                std::cout << "string: " << s << std::endl;
+                //std::cout << "string: " << s << std::endl;
                 pt.push_back(s);
             }
             void kv(boost::json::string_view k, boost::json::value v, std::deque<boost::json::value>& pt)
             { 
-                std::cout << "object: " << k << " -> " << boost::json::serialize(v) << std::endl; 
+                //std::cout << "object: " << k << " -> " << boost::json::serialize(v) << std::endl; 
                 pt.push_back(v);
             }
         };
@@ -429,11 +435,22 @@ namespace jsonpath {
                                         }
                                     }
                                 } else {
-                                    for (int i = 0; i < sz; i++) { // index is string
+                                    for (int i = 0; i < sz; i++) {
                                         json::value& jv = pt.front();
-                                        auto& obj = jv.get_object();
-                                        if (!obj[s.element].is_null()) {
-                                            pt.push_back(obj[s.element]);
+                                        if (jv.is_array()) {
+                                            auto const& arr = jv.get_array();
+                                            
+                                            if(!arr.empty()) {
+                                                for (const auto& item : arr) {
+                                                    if (item.is_object())
+                                                    {
+                                                        auto obj = item.as_object();
+                                                        if (!obj[s.element].is_null()) {
+                                                            pt.push_back(obj[s.element]);
+                                                        }
+                                                    }
+                                                }
+                                            }
                                         }
                                         pt.erase(pt.begin());
                                     }
@@ -503,7 +520,6 @@ namespace jsonpath {
                             {
                                 size_t sz = pt.size();
                                 for (int i = 0; i < sz; i++) {
-                                std::cout << "============= Descendant Selector" << std::endl;
                                     json::value& jv = pt.front();
                                     f_visit fv;
                                     visit(fv, jv, pt);
