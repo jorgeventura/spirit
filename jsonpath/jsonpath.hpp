@@ -13,8 +13,6 @@
 #include <boost/json.hpp>
 
 #include <boost/fusion/include/adapt_struct.hpp>
-//#include <boost/property_tree/ptree.hpp>
-//#include <boost/property_tree/json_parser.hpp>
 
 #include <deque>
 #include <variant>
@@ -23,12 +21,6 @@
 #include <algorithm>
 
 #define DD  std::cout << "I am here" << std::endl
-
-//#include <boost/fusion/include/vector.hpp>
-//#include <boost/fusion/algorithm.hpp>
-
-//#include <boost/spirit/home/x3/support/ast/variant.hpp>
-//#include <boost/config/warning_disable.hpp>
 
 
 namespace x3 = boost::spirit::x3;
@@ -146,11 +138,19 @@ namespace jsonpath {
         auto desc_action    = [](auto& ctx) { sl_.slist.push_back(selector::sel(selector::selId::desc, _attr(ctx))); };
         auto filter_action  = [](auto& ctx) { sl_.slist.push_back(selector::sel(selector::selId::filter, _attr(ctx))); };
 
+
         // root-selector (0)
         const auto root_selector__def = x3::char_('$');
         // dot-selector (1)
-        const auto dot_member_name = x3::char_('.') >> +x3::alpha;
-        const auto dot_selector__def = dot_member_name;
+        x3::rule<struct _, std::string> dot_member_name = "dot-member-name";
+        
+        const auto name_first = x3::char_('_') | x3::alpha | x3::char_(0x80, 0x10ffff);
+        const auto name_char = x3::digit | name_first;
+        
+        const auto dot_member_name_def = name_first >> *name_char;
+        BOOST_SPIRIT_DEFINE(dot_member_name);
+
+        const auto dot_selector__def = '.' >> dot_member_name;
         // dot-wild-selector (2)
         const auto dotw_selector__def = x3::string(".*");
         // index-wild-selector (3)
@@ -177,7 +177,9 @@ namespace jsonpath {
         // list-selector (6)
         const auto lsts_selector__def = x3::lit("end");
         // descendant-selector (7)
-        const auto desc_selector__def = (x3::lit("..") >> x3::string("[*]")) | (x3::lit("..[") >> x3::int_ >> ']') | (x3::lit("..") >> (x3::string("*") | +x3::alpha));
+        const auto desc_selector__def = (x3::lit("..") >> x3::string("[*]")) |
+                                        (x3::lit("..[") >> x3::int_ >> ']')  |
+                                        (x3::lit("..") >> (x3::string("*")   | dot_member_name));
         // filter-selector (8)
         const auto filter_selector__def = x3::lit("end");
 
@@ -196,6 +198,7 @@ namespace jsonpath {
                 )
             // End Gramar
             ;
+
 
         BOOST_SPIRIT_DEFINE(root_selector_);
         BOOST_SPIRIT_DEFINE(dot_selector_);
@@ -337,7 +340,7 @@ namespace jsonpath {
                         case selId::dot:
                             {
                                 size_t sz = pt.size();
-                                std::string::const_iterator it = ++(s.element.cbegin());
+                                std::string::const_iterator it = s.element.cbegin();
                                 std::string tname(it, s.element.end());
 
                                 for (int i = 0; i < sz; i++) {
@@ -456,6 +459,9 @@ namespace jsonpath {
                                                     }
                                                 }
                                             }
+                                        } else
+                                        if (jv.is_object()) {
+                                            DD;
                                         }
                                         pt.erase(pt.begin());
                                     }
