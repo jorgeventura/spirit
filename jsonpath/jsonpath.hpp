@@ -289,30 +289,6 @@ namespace jsonpath {
                     }
                 }
             } 
-            /*
-                Do not include because the json::object
-                was already included
-
-            else
-            if (jv.is_string()) {
-                fv.kv(jv.get_string(), pt);
-            } else
-            if (jv.is_int64()) {
-                fv.kv(jv.get_int64(), pt);
-            } else
-            if (jv.is_uint64()) {
-                fv.kv(jv.get_uint64(), pt);
-            } else
-            if (jv.is_double()) {
-                fv.kv(jv.get_double(), pt);
-            } else
-            if (jv.is_bool()) {
-                fv.kv(jv.get_bool(), pt);
-            } else
-            if (jv.is_null()) {
-                fv.kv("null", pt);
-            }
-            */
         }
 
         bool parse(std::string qs, boost::json::value& jv, std::vector<boost::json::value>& res)
@@ -461,7 +437,12 @@ namespace jsonpath {
                                             }
                                         } else
                                         if (jv.is_object()) {
-                                            DD;
+                                            auto& obj = jv.get_object();
+                                            if(!obj.empty()) {
+                                                if (!obj[s.element].is_null()) {
+                                                    pt.push_back(obj[s.element]);
+                                                }
+                                            }
                                         }
                                         pt.erase(pt.begin());
                                     }
@@ -632,78 +613,3 @@ jsonpath::ast::selector::selList,
 
 
 #endif	// JSONPATH_HPP
-/*
-        struct f_visit {
-            //json_tree jtree;
-
-            void kv(boost::json::value v) { std::cout << "value: " << boost::json::serialize(v) << std::endl; };
-
-            void kv(bool b) { std::cout << "bool: " << b << std::endl; };
-            void kv(double d) { std::cout << "double: " << d << std::endl; };
-            void kv(std::int64_t i) { std::cout << "int64: " << i << std::endl; };
-            void kv(std::uint64_t ui) { std::cout << "uint64: " << ui << std::endl; };
-            void kv(boost::json::array a) { std::cout << "array: " << boost::json::serialize(a) << std::endl; };
-            void kv(boost::json::string s) { std::cout << "string: " << s << std::endl; };
-            void kv(boost::json::string_view k, boost::json::value v)
-            { 
-                std::cout << "object: " << k << " -> " << boost::json::serialize(v) << std::endl; 
-            };
-        };
-
-        void visit(f_visit fv, boost::json::value const& jv)
-        {
-            if (jv.is_object()) {
-                auto const& obj = jv.get_object();
-                if(!obj.empty())
-                {
-                    // Split to process the same level
-                    for(auto it = obj.begin(); it != obj.end(); ++it) {
-                        fv.kv(it->key(), it->value());
-                    }
-                    
-                    // Split to process the same level
-                    for(auto it = obj.begin(); it != obj.end(); ++it) {
-                        visit(fv, it->value());
-                    }
-                }
-            } else
-            if (jv.is_array()) {
-                auto const& arr = jv.get_array();
-                if(!arr.empty())
-                {
-                    // Split to process the same level
-                    for(auto it = arr.begin(); it != arr.end(); ++it) {
-                        fv.kv(*it);
-                    }
-
-                    // Split to process the same level
-                    for(auto it = arr.begin(); it != arr.end(); ++it) {
-                        visit(fv, *it);
-                    }
-                }
-            } 
- 
-            else
-            if (jv.is_string()) {
-                fv.kv(jv.get_string());
-            } else
-            if (jv.is_int64()) {
-                fv.kv(jv.get_int64());
-            } else
-            if (jv.is_uint64()) {
-                fv.kv(jv.get_uint64());
-            } else
-            if (jv.is_double()) {
-                fv.kv(jv.get_double());
-            } else
-            if (jv.is_bool()) {
-                fv.kv(jv.get_bool());
-
-
-            } else
-            if (jv.is_null()) {
-                fv.kv("null");
-            }
-
-        }
-*/
