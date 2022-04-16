@@ -1,6 +1,11 @@
-ACLOCAL_AMFLAGS=-stdc=++23
+ACLOCAL_AMFLAGS=-stdc=++23 -I m4
 
-bin_PROGRAMS=jsonpath
+bin_PROGRAMS=jsp
+noinst_LTLIBRARIES=libjsonpath.la
 
-jsonpath_SOURCES=jsonpath.cc jsonpath.hpp
+libjsonpath_la_SOURCES=jsonpath.cc
+
+jsp_DEPENDENCIES=libjsonpath.la
+jsp_LDADD=-L. -ljsonpath
+jsp_SOURCES=jsp.cc jsonpath.hpp
 

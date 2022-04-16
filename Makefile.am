@@ -1,3 +1,5 @@
+ACLOCAL_AMFLAGS=-stdc=++23 -I m4
+
 SUBDIRS=inline \
 	roman \
 	employee \
