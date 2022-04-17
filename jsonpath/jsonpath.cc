@@ -4,11 +4,12 @@
  * (c)Ventura			2022
  *====================================*/
 // Uncomment this if you want to enable debugging
-#define BOOST_SPIRIT_X3_DEBUG
+//#define BOOST_SPIRIT_X3_DEBUG
 
 #include <boost/spirit/home/x3.hpp>
 #include <boost/json.hpp>
 
+#include <boost/fusion/container.hpp>
 #include <boost/fusion/include/adapt_struct.hpp>
 
 #include <deque>
@@ -66,6 +67,11 @@ namespace jsonpath {
                     std::cout << id << ": sel(selId i, std::vector<int> ele)" << std::endl;
                 }
                 
+                sel(selId i, std::vector<boost::variant<std::string, int, std::vector<int>>> ele) : id(i)
+                {
+                    std::cout << id << ": sel(selId i, std::vector<int> ele)" << std::endl;
+                }
+                
 
                 friend inline std::ostream& operator<<(std::ostream& out, sel const& sl) 
                 {
@@ -85,7 +91,7 @@ namespace jsonpath {
             std::string full_selector(selector::selList& sl)
             {
                 std::string fsel;
-                for (const auto& sel : sl.slist) {
+                for (auto const& sel : sl.slist) {
                     fsel += sel.element;
                 }
                 return fsel;
@@ -106,21 +112,20 @@ namespace jsonpath {
         x3::rule<jsonpath_class, selector::selList> const jsonpath("jsonpath");
 
         /* Rules defined */
-        x3::rule<struct root_selector, char> const root_selector_ = "root";
-        x3::rule<struct dot_selector, std::string> dot_selector_ = "dot";
-        x3::rule<struct dotw_selector, std::string> dotw_selector_ = "dotw";
-        x3::rule<struct idxw_selector, std::string> idxw_selector_ = "idxw";
+        x3::rule<struct root_selector_id, char> const root_selector_ = "root";
+        x3::rule<struct dot_selector_id, std::string> dot_selector_ = "dot";
+        x3::rule<struct dotw_selector_id, std::string> dotw_selector_ = "dotw";
+        x3::rule<struct idxw_selector_id, std::string> idxw_selector_ = "idxw";
 
         // index-selector for number
-        x3::rule<struct indx_selector, boost::variant<std::string, int>> indx_selector_ = "indx";
+        x3::rule<struct indx_selector_id, boost::variant<std::string, int>> indx_selector_ = "indx";
 
-        x3::rule<struct slice_selector, std::vector<int>> slice_selector_ = "slice";
-
+        x3::rule<struct slice_selector_id, std::vector<int>> slice_selector_ = "slice";
 
 
         // list-selector for number
         // ==================================
-        x3::rule<struct lsts_selector, std::string> lsts_selector_ = "lsts";
+        x3::rule<struct lsts_selector_id, std::vector<boost::variant<std::string, int, std::vector<int>>>> lsts_selector_ = "lsts";
         // ==================================
 
 
@@ -139,55 +144,63 @@ namespace jsonpath {
 
 
         // root-selector (0)
-        const auto root_selector__def = x3::char_('$');
+        auto const root_selector__def = x3::char_('$');
         // dot-selector (1)
-        x3::rule<struct _, std::string> dot_member_name = "dot-member-name";
+        x3::rule<struct dot_member_name_id, std::string> dot_member_name = "dot-member-name";
         
-        const auto name_first = x3::char_('_') | x3::alpha | x3::char_(0x80, 0x10ffff);
-        const auto name_char = x3::digit | name_first;
+        auto const name_first = x3::char_('_') | x3::alpha | x3::char_(0x80, 0x10ffff);
+        auto const name_char = x3::digit | name_first;
         
-        const auto dot_member_name_def = name_first >> *name_char;
+        auto const dot_member_name_def = name_first >> *name_char;
         BOOST_SPIRIT_DEFINE(dot_member_name);
 
-        const auto dot_selector__def = '.' >> dot_member_name;
+        auto const dot_selector__def = '.' >> dot_member_name;
         // dot-wild-selector (2)
-        const auto dotw_selector__def = x3::string(".*");
+        auto const dotw_selector__def = x3::string(".*");
         // index-wild-selector (3)
-        const auto idxw_selector__def = x3::skip(x3::space)['[' >> x3::char_('*') >> ']'];
+        auto const idxw_selector__def = x3::skip(x3::space)['[' >> x3::char_('*') >> ']'];
 
         // index-selector for numbers
-        const auto element_index = x3::int_;    // attr: int
+        auto const element_index = x3::int_;    // attr: int
         
         // index-selector for string
-        const auto double_quoted = '\"' >> dot_member_name >> '\"';
-        const auto single_quoted = '\'' >> dot_member_name >> '\'';
-        const auto string_literal = double_quoted | single_quoted;
-        const auto quoted_member_name = string_literal;     // attr: std::string
+        auto const double_quoted = '\"' >> dot_member_name >> '\"';
+        auto const single_quoted = '\'' >> dot_member_name >> '\'';
+        auto const string_literal = double_quoted | single_quoted;
+
+        x3::rule<struct quoted_member_name_id, std::string> quoted_member_name = "quoted-member-name";
+        auto const quoted_member_name_def = string_literal;     // attr: std::string
+        BOOST_SPIRIT_DEFINE(quoted_member_name);
 
         // split index selector in two rules
         // to avoid variant atrribute problems (4)
-        const auto indx_selector__def = x3::skip(x3::space)['[' >> (element_index | quoted_member_name) >> ']'];
+        auto const indx_selector__def = x3::skip(x3::space)['[' >> (element_index | quoted_member_name) >> ']'];
 
         // slice-selector [<start>:<end>:<step>] (5)
-        const auto slice_index = (x3::int_ | x3::attr(0)) >>
+        x3::rule<struct slice_index_id, std::vector<int>> slice_index = "slice-index";
+        auto const slice_index_def = (x3::int_ | x3::attr(0)) >>
              (':' >> x3::int_  | ':' >> x3::attr(INT_MAX)) >>
             ((':' >> x3::int_) | ':' >> x3::attr(1) | x3::attr(1)); // attr: std::vector<int>
+        BOOST_SPIRIT_DEFINE(slice_index);
 
-        const auto slice_selector__def = x3::skip(x3::space)['[' >> slice_index >> ']'];
+        auto const slice_selector__def = x3::skip(x3::space)['[' >> slice_index >> ']'];
 
         // list-selector (6)
-        const auto list_entry = quoted_member_name | element_index | slice_index;
-        // attr: boost::variant<std::string, int, std::vector<int>>
-        const auto lsts_selector__def = '[' >> (list_entry % ',') >> ']';   // attr: std::vector<boost::variant<std::string, int, std::vector<int>>>
+        x3::rule<struct list_entry_id, boost::variant<std::string, int, std::vector<int>>> list_entry = "listr-entry";
+        auto const list_entry_def = quoted_member_name | element_index | slice_index;
+        BOOST_SPIRIT_DEFINE(list_entry);
+
+        // attr: std::vector<boost::variant<std::string, int, std::vector<int>>>
+        auto const lsts_selector__def = '[' >> (list_entry % ',') >> ']';
 
         // descendant-selector (7)
-        const auto desc_selector__def = (x3::lit("..") >> x3::string("[*]")) |
+        auto const desc_selector__def = (x3::lit("..") >> x3::string("[*]")) |
                                         (x3::lit("..[") >> x3::int_ >> ']')  |
                                         (x3::lit("..") >> (x3::string("*")   | dot_member_name));
         // filter-selector (8)
-        const auto filter_selector__def = x3::lit("end");
+        auto const filter_selector__def = x3::lit("end");
 
-        const auto jsonpath_def = 
+        auto const jsonpath_def = 
             // Begin grammar
             root_selector_[root_action]
             >> *(
@@ -310,7 +323,7 @@ namespace jsonpath {
                 namespace selId = jsonpath::ast::selector;
 
                 // eval the jsonpath
-                for (const auto& s : sl_.slist) {
+                for (auto const& s : sl_.slist) {
 
                     switch (s.id) {
                         case selId::root: 
@@ -429,7 +442,7 @@ namespace jsonpath {
                                             auto const& arr = jv.get_array();
                                             
                                             if(!arr.empty()) {
-                                                for (const auto& item : arr) {
+                                                for (auto const& item : arr) {
                                                     if (item.is_object())
                                                     {
                                                         auto obj = item.as_object();
@@ -463,7 +476,7 @@ namespace jsonpath {
                                         if (jv.is_array()) {
                                             auto const& arr = jv.get_array();
 
-                                            const auto normalize = [](int i, int len) -> int {
+                                            auto const normalize = [](int i, int len) -> int {
                                                 if (i >= 0) {
                                                     return i;
                                                 } else {
@@ -591,7 +604,7 @@ namespace jsonpath {
                 }
 
 
-                for (const auto& jv : pt) {
+                for (auto const& jv : pt) {
                      res.push_back(jv);
                 }
 
