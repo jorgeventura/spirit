@@ -177,7 +177,7 @@ namespace jsonpath {
 
         // list-selector (6)
         const auto list_entry = quoted_member_name | element_index | slice_index;
-        const auto lsts_selector__def = /*x3::lit("end");*/ '[' >> (list_entry % x3::char_(',')) >> ']';
+        const auto lsts_selector__def = '[' >> (list_entry % ',') >> ']';
 
         // descendant-selector (7)
         const auto desc_selector__def = (x3::lit("..") >> x3::string("[*]")) |
