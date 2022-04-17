@@ -3,6 +3,8 @@
  *
  * (c)Ventura			2022
  *====================================*/
+// Uncomment this if you want to enable debugging
+#define BOOST_SPIRIT_X3_DEBUG
 
 #include <boost/spirit/home/x3.hpp>
 #include <boost/json.hpp>
@@ -113,7 +115,15 @@ namespace jsonpath {
         x3::rule<struct indx_selector, boost::variant<std::string, int>> indx_selector_ = "indx";
 
         x3::rule<struct slice_selector, std::vector<int>> slice_selector_ = "slice";
+
+
+
+        // list-selector for number
+        // ==================================
         x3::rule<struct lsts_selector, std::string> lsts_selector_ = "lsts";
+        // ==================================
+
+
         x3::rule<struct desc_selector, boost::variant<std::string, int>> desc_selector_ = "desc";
         x3::rule<struct filter_selector, std::string> filter_selector_ = "filter";
 
@@ -159,12 +169,16 @@ namespace jsonpath {
         const auto indx_selector__def = x3::skip(x3::space)['[' >> (element_index | quoted_member_name) >> ']'];
 
         // slice-selector [<start>:<end>:<step>] (5)
-        const auto slice_selector__def = x3::skip(x3::space)['[' >> (x3::int_ | x3::attr(0)) >>
+        const auto slice_index = (x3::int_ | x3::attr(0)) >>
              (':' >> x3::int_  | ':' >> x3::attr(INT_MAX)) >>
-            ((':' >> x3::int_) | ':' >> x3::attr(1) | x3::attr(1)) >> ']'];
+            ((':' >> x3::int_) | ':' >> x3::attr(1) | x3::attr(1));
+
+        const auto slice_selector__def = x3::skip(x3::space)['[' >> slice_index >> ']'];
 
         // list-selector (6)
-        const auto lsts_selector__def = x3::lit("end");
+        const auto list_entry = quoted_member_name | element_index | slice_index;
+        const auto lsts_selector__def = /*x3::lit("end");*/ '[' >> (list_entry % x3::char_(',')) >> ']';
+
         // descendant-selector (7)
         const auto desc_selector__def = (x3::lit("..") >> x3::string("[*]")) |
                                         (x3::lit("..[") >> x3::int_ >> ']')  |
