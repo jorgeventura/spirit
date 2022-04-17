@@ -156,13 +156,13 @@ namespace jsonpath {
         const auto idxw_selector__def = x3::skip(x3::space)['[' >> x3::char_('*') >> ']'];
 
         // index-selector for numbers
-        const auto element_index = x3::int_;
+        const auto element_index = x3::int_;    // attr: int
         
         // index-selector for string
-        const auto double_quoted = '\"' >> +x3::alpha >> '\"';
-        const auto single_quoted = '\'' >> +x3::alpha >> '\'';
+        const auto double_quoted = '\"' >> dot_member_name >> '\"';
+        const auto single_quoted = '\'' >> dot_member_name >> '\'';
         const auto string_literal = double_quoted | single_quoted;
-        const auto quoted_member_name = string_literal;
+        const auto quoted_member_name = string_literal;     // attr: std::string
 
         // split index selector in two rules
         // to avoid variant atrribute problems (4)
@@ -171,13 +171,14 @@ namespace jsonpath {
         // slice-selector [<start>:<end>:<step>] (5)
         const auto slice_index = (x3::int_ | x3::attr(0)) >>
              (':' >> x3::int_  | ':' >> x3::attr(INT_MAX)) >>
-            ((':' >> x3::int_) | ':' >> x3::attr(1) | x3::attr(1));
+            ((':' >> x3::int_) | ':' >> x3::attr(1) | x3::attr(1)); // attr: std::vector<int>
 
         const auto slice_selector__def = x3::skip(x3::space)['[' >> slice_index >> ']'];
 
         // list-selector (6)
         const auto list_entry = quoted_member_name | element_index | slice_index;
-        const auto lsts_selector__def = '[' >> (list_entry % ',') >> ']';
+        // attr: boost::variant<std::string, int, std::vector<int>>
+        const auto lsts_selector__def = '[' >> (list_entry % ',') >> ']';   // attr: std::vector<boost::variant<std::string, int, std::vector<int>>>
 
         // descendant-selector (7)
         const auto desc_selector__def = (x3::lit("..") >> x3::string("[*]")) |

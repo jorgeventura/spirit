@@ -1,7 +1,6 @@
 ACLOCAL_AMFLAGS=-stdc=++23
 
-bin_PROGRAMS=calc calca
+bin_PROGRAMS=calc
 
 calc_SOURCES=calc5.cc
 
-calca_SOURCES=calc5a.cc
