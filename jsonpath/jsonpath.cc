@@ -484,8 +484,8 @@ namespace jsonpath {
 
                         case selId::slice:
                             {
-                                size_t sz = pt.size();
                                 if (!s.indx.empty()) { // index is number
+                                    size_t sz = pt.size();
                                     for (int i = 0; i < sz; i++) {
                                         json::value& jv = pt.front();
                                         if (jv.is_array()) {
@@ -536,7 +536,110 @@ namespace jsonpath {
                             break;
 
                         case selId::lsts:
-                            pt.clear();
+                            {
+                                if (!s.lsts.empty()) {
+                                    size_t sz = pt.size();
+                                    for (auto const& e : s.lsts) {
+                                        if (e.type() == typeid(int)) {
+                                            for (int i = 0; i < sz; i++) {
+                                                json::value& jv = pt[i];
+                                                if (jv.is_array()) {
+                                                    auto const& arr = jv.get_array();
+                                                    if(!arr.empty())
+                                                    {
+                                                        int j = boost::get<int>(e);
+                                                        int len = arr.size();
+                                                        if ((j < len) && (j >= -len)) {
+                                                            int k = (len + j) % len;
+                                                            pt.push_back(arr[k]);
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        } else
+                                        if (e.type() == typeid(std::string)) {
+                                            for (int i = 0; i < sz; i++) {
+                                                json::value& jv = pt[i];
+                                                if (jv.is_array()) {
+                                                    auto const& arr = jv.get_array();
+
+                                                    if(!arr.empty()) {
+                                                        for (auto const& item : arr) {
+                                                            if (item.is_object())
+                                                            {
+                                                                auto obj = item.as_object();
+                                                                std::string name = boost::get<std::string>(e);
+                                                                if (!obj[name].is_null()) {
+                                                                    pt.push_back(obj[name]);
+                                                                }
+                                                            }
+                                                        }
+                                                    }
+                                                } else
+                                                if (jv.is_object()) {
+                                                    auto& obj = jv.get_object();
+                                                    if(!obj.empty()) {
+                                                        std::string name = boost::get<std::string>(e);
+                                                        if (!obj[name].is_null()) {
+                                                            pt.push_back(obj[name]);
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        } else if (e.type() == typeid(std::vector<int>)) {
+                                            for (int i = 0; i < sz; i++) {
+                                                json::value& jv = pt[i];
+                                                std::vector<int> v = boost::get<std::vector<int>>(e);
+                                                if (jv.is_array()) {
+                                                    auto const& arr = jv.get_array();
+
+                                                    auto const normalize = [](int i, int len) -> int {
+                                                        if (i >= 0) {
+                                                            return i;
+                                                        } else {
+                                                            return len + i;
+                                                        }
+                                                    };
+
+                                                    int n_start = normalize(v[0], arr.size());
+                                                    int n_end   = (v[1] == INT_MAX) ? (int)arr.size() : v[1];
+
+                                                    n_end       = normalize(n_end, arr.size());
+                                                    int step    = v[2];
+
+                                                    int lower, upper;
+
+                                                    if (step >= 0) {
+                                                        lower = std::min(std::max(n_start, 0), (int)arr.size());
+                                                        upper = std::min(std::max(n_end, 0), (int)arr.size());
+                                                    } else {
+                                                        lower = std::min(std::max(n_start, -1), ((int)arr.size() - 1));
+                                                        upper = std::min(std::max(n_end, -1), ((int)arr.size() - 1));
+                                                    }
+
+                                                    if (step > 0) {
+                                                        int i = lower;
+                                                        while (i < upper) {
+                                                            pt.push_back(arr[i]);
+                                                            i = i + step;
+                                                        }
+                                                    } else
+                                                    if (step < 0) {
+                                                        int i = upper;
+                                                        while (lower <= i) {
+                                                            pt.push_back(arr[i]);
+                                                            i = i + step;
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                    for (int i = 0; i < sz; i++) {
+                                        pt.erase(pt.begin());
+                                    }
+                                }
+                            }
                             break;
 
                         case selId::desc:
