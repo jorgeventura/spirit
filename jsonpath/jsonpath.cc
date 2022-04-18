@@ -81,6 +81,18 @@ namespace jsonpath {
                     for (int i : sl.indx) {
                         out << i << " ";
                     }
+                    out << "] lsts: [ ";
+                    for (auto const& e : sl.lsts) {
+                        if (e.type() == typeid(int)) {
+                            out << boost::get<int>(e) << ", ";
+                        } else
+                        if (e.type() == typeid(std::string)) {
+                            out << boost::get<std::string>(e) << ", ";
+                        } else if (e.type() == typeid(std::vector<int>)) {
+                            std::vector<int> v = boost::get<std::vector<int>>(e);
+                            out << v[0] << ':' << v[1] << ':' << v[2] << ", ";
+                        }
+                    }
                     out << ']' << std::endl;
                     return out;
                 }
@@ -194,7 +206,7 @@ namespace jsonpath {
         BOOST_SPIRIT_DEFINE(list_entry);
 
         // attr: std::vector<boost::variant<std::string, int, std::vector<int>>>
-        auto const lsts_selector__def = '[' >> (list_entry % ',') >> ']';
+        auto const lsts_selector__def = x3::skip(x3::space)['[' >> (list_entry % ',') >> ']'];
 
         // descendant-selector (7)
         auto const desc_selector__def = (x3::lit("..") >> x3::string("[*]")) |
