@@ -4,7 +4,7 @@
  * (c)Ventura			2022
  *====================================*/
 // Uncomment this if you want to enable debugging
-//#define BOOST_SPIRIT_X3_DEBUG
+#define BOOST_SPIRIT_X3_DEBUG
 
 #include <boost/spirit/home/x3.hpp>
 #include <boost/json.hpp>
@@ -12,6 +12,7 @@
 #include <boost/fusion/container.hpp>
 #include <boost/fusion/include/adapt_struct.hpp>
 
+#include <variant>
 #include <deque>
 #include <iostream>
 
@@ -37,6 +38,7 @@ namespace jsonpath {
                 selId id;
                 std::string element;
                 std::vector<int> indx;
+                std::vector<boost::variant<std::vector<int>, std::string, int>> lsts;
 
                 sel(selId i, std::string ele) : id(i), element(ele)
                 { std::cout << id << ": sel(selId i, std::string ele) " << ele << std::endl; }
@@ -67,9 +69,9 @@ namespace jsonpath {
                     std::cout << id << ": sel(selId i, std::vector<int> ele)" << std::endl;
                 }
                 
-                sel(selId i, std::vector<boost::variant<std::string, int, std::vector<int>>> ele) : id(i)
+                sel(selId i, std::vector<boost::variant<std::vector<int>, std::string, int>> ele) : id(i), lsts(ele)
                 {
-                    std::cout << id << ": sel(selId i, std::vector<int> ele)" << std::endl;
+                    std::cout << id << ": sel(selId i, std::vector<boost::variant<std::string, int, std::vector<int>>> ele)" << std::endl;
                 }
                 
 
@@ -125,7 +127,7 @@ namespace jsonpath {
 
         // list-selector for number
         // ==================================
-        x3::rule<struct lsts_selector_id, std::vector<boost::variant<std::string, int, std::vector<int>>>> lsts_selector_ = "lsts";
+        x3::rule<struct lsts_selector_id, std::vector<boost::variant<std::vector<int>, std::string, int>>> lsts_selector_ = "lsts";
         // ==================================
 
 
@@ -186,8 +188,9 @@ namespace jsonpath {
         auto const slice_selector__def = x3::skip(x3::space)['[' >> slice_index >> ']'];
 
         // list-selector (6)
-        x3::rule<struct list_entry_id, boost::variant<std::string, int, std::vector<int>>> list_entry = "listr-entry";
-        auto const list_entry_def = quoted_member_name | element_index | slice_index;
+        x3::rule<struct list_entry_id, boost::variant<std::vector<int>, std::string, int>> list_entry = "listr-entry";
+        // The order in the rule is important: slice_index -> quoted_member_name -> element_index
+        auto const list_entry_def = slice_index | quoted_member_name | element_index;
         BOOST_SPIRIT_DEFINE(list_entry);
 
         // attr: std::vector<boost::variant<std::string, int, std::vector<int>>>
@@ -521,8 +524,7 @@ namespace jsonpath {
                             break;
 
                         case selId::lsts:
-                            {
-                            }
+                            pt.clear();
                             break;
 
                         case selId::desc:
