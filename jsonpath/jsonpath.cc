@@ -213,7 +213,16 @@ namespace jsonpath {
                                         (x3::lit("..[") >> x3::int_ >> ']')  |
                                         (x3::lit("..") >> (x3::string("*")   | dot_member_name));
         // filter-selector (8)
-        auto const filter_selector__def = x3::lit("end");
+
+        auto const relation_expr = x3::char_;
+        auto const parent_expr = x3::char_;
+        auto const exist_expr = x3::char_;
+
+        auto const basic_expr = exist_expr | parent_expr | relation_expr;
+        auto const logical_and_expr = basic_expr % "&&";
+        auto const logical_or_expr = logical_and_expr % "||";
+        auto const bolean_expr = logical_or_expr;
+        auto const filter_selector__def = x3::skip(x3::blank)['[' >> x3::lit('?') >> bolean_expr >> ']'];
 
         auto const jsonpath_def = 
             // Begin grammar
@@ -341,10 +350,12 @@ namespace jsonpath {
                 for (auto const& s : sl_.slist) {
 
                     switch (s.id) {
+                        // root-selector
                         case selId::root: 
                             pt.push_back(jv);
                             break;
 
+                        // dot-selector
                         case selId::dot:
                             {
                                 size_t sz = pt.size();
@@ -372,6 +383,7 @@ namespace jsonpath {
                             }
                             break;
 
+                        // dot-wild-selector
                         case selId::dotw: 
                             {
                                 size_t sz = pt.size();
@@ -404,6 +416,7 @@ namespace jsonpath {
                             }
                             break;
 
+                        // index-wild-selector
                         case selId::idxw:
                             {
                                 size_t sz = pt.size();
@@ -427,6 +440,7 @@ namespace jsonpath {
                             }
                             break;
 
+                        // index-selector
                         case selId::indx:
                             {
                                 size_t sz = pt.size();
@@ -482,6 +496,7 @@ namespace jsonpath {
                             }
                             break;
 
+                        // slice-selector
                         case selId::slice:
                             {
                                 if (!s.indx.empty()) { // index is number
@@ -535,6 +550,7 @@ namespace jsonpath {
                             }
                             break;
 
+                        // list-selector
                         case selId::lsts:
                             {
                                 if (!s.lsts.empty()) {
@@ -642,6 +658,7 @@ namespace jsonpath {
                             }
                             break;
 
+                        // descendant-selector
                         case selId::desc:
                             {
                                 size_t sz = pt.size();
@@ -713,6 +730,7 @@ namespace jsonpath {
                             }
                             break;
 
+                        // filter-selector
                         case selId::filter:
                             {
                             }
