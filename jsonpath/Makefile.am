@@ -1,4 +1,4 @@
-ACLOCAL_AMFLAGS=-stdc=++23 -I m4
+ACLOCAL_AMFLAGS=-stdc=++23 -I m4 -ftemplate-depth=5000
 
 bin_PROGRAMS=jsp
 noinst_LTLIBRARIES=libjsonpath.la
