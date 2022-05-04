@@ -14,7 +14,7 @@ int main(int argc, char* argv[])
 {
    //----------------------------------------------
    // Read input file to string
-   std::string name { "test-01.json" };
+   std::string name { argv[1] };
    std::ifstream inp(name);
    std::string s;
 
@@ -36,7 +36,7 @@ int main(int argc, char* argv[])
    //std::string qs = { "$.store.bicycle.*" };
    //std::string qs = { "$.store.book.*" };
    //std::string qs = { "$.store.*" };
-   std::string qs(argv[1]);
+   std::string qs(argv[2]);
    
    //std::string qs = { "$.address[\"city\"]" };
    //std::string qs = { "$.phoneNumbers[0][\"type\"]" };
