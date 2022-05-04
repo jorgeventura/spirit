@@ -79,6 +79,12 @@ namespace jsonpath {
                 sel(selId i, std::vector<boost::variant<boost::variant<std::string, int>, std::string>> ele) : id(i)
                 {
                     std::cout << id << ": sel(selId i, std::vector<boost::variant<boost::variant<std::string, int>, std::string>> ele)" << std::endl;
+                        std::cout << "I am here: " << ele.size() << std::endl;
+                    for (auto const& it : ele) {
+                        if (it.type() == typeid(std::string)) {
+                            std::cout << boost::get<std::string>(it) << std::endl;
+                        }
+                    }
                 }
                 
 
@@ -130,7 +136,11 @@ namespace jsonpath {
         selector::selList sl_;
 
         // Main rule
-        x3::rule<jsonpath_class, selector::selList> const jsonpath("jsonpath");
+        x3::rule<jsonpath_class, selector::selList> const json_path("json-path");
+
+        // rule for space S
+        auto const blank = x3::blank | x3::char_('\t') | x3::char_('\n') | x3::char_('\r');
+        auto const space = +blank;
 
         /* Rules defined */
         x3::rule<struct root_selector_id, char> const root_selector_ = "root";
@@ -175,7 +185,7 @@ namespace jsonpath {
         // dot-wild-selector (2)
         auto const dotw_selector__def = x3::string(".*"); // attr: std::string
         // index-wild-selector (3)
-        auto const idxw_selector__def = x3::skip(x3::blank)['[' >> x3::char_('*') >> ']']; // attr: std::string
+        auto const idxw_selector__def = '[' >> x3::char_('*') >> ']'; // attr: std::string
 
         // index-selector for numbers
         auto const element_index = x3::int_;    // attr: int
@@ -191,7 +201,7 @@ namespace jsonpath {
 
         // split index selector in two rules
         // to avoid variant atrribute problems (4)
-        auto const indx_selector__def = x3::skip(x3::blank)['[' >> (element_index | quoted_member_name) >> ']']; // attr: boost::varian<std::string, int>
+        auto const indx_selector__def = '[' >> (element_index | quoted_member_name) >> ']'; // attr: boost::varian<std::string, int>
 
         // slice-selector [<start>:<end>:<step>] (5)
         x3::rule<struct slice_index_id, std::vector<int>> slice_index = "slice-index";
@@ -200,7 +210,7 @@ namespace jsonpath {
             ((':' >> x3::int_) | ':' >> x3::attr(1) | x3::attr(1));
         BOOST_SPIRIT_DEFINE(slice_index);
 
-        auto const slice_selector__def = x3::skip(x3::blank)['[' >> slice_index >> ']']; // attr: std::vector<int>
+        auto const slice_selector__def = '[' >> slice_index >> ']'; // attr: std::vector<int>
 
         // list-selector (6)
         x3::rule<struct list_entry_id, boost::variant<std::vector<int>, std::string, int>> list_entry = "list-entry";
@@ -209,33 +219,38 @@ namespace jsonpath {
         BOOST_SPIRIT_DEFINE(list_entry);
 
         // attr: std::vector<boost::variant<std::string, int, std::vector<int>>>
-        auto const lsts_selector__def = x3::skip(x3::space)['[' >> (list_entry % ',') >> ']'];
+        auto const lsts_selector__def = '[' >> (list_entry % ',') >> ']';
 
         // descendant-selector (7)
         auto const desc_selector__def = (x3::lit("..") >> x3::string("[*]")) |
                                         (x3::lit("..[") >> x3::int_ >> ']')  |
                                         (x3::lit("..") >> (x3::string("*")   | dot_member_name)); // attr: boost::variant<std::string, int>
         // filter-selector (8)
-
         auto const rel_path = '@' >> *(indx_selector_ | dot_selector_);
 
-        auto const json_path = root_selector_ >> *(
-                                   dot_selector_   |
-                                   dotw_selector_  |
-                                   idxw_selector_  |
-                                   indx_selector_  |
-                                   slice_selector_ |
-                                   lsts_selector_  |
-                                   desc_selector_
-                                   //| filter_selector_
-                            );
-        
-        auto const path = rel_path;
+        auto const path = rel_path | json_path;
         auto const exist_expr = -x3::lit('!') >> path;
         
-        x3::rule<class bolean_expr> bolean_expr = "bolean-expr";
+        x3::rule<struct bolean_expr_id> bolean_expr = "bolean-expr";
 
-        auto const relation_expr = x3::char_;
+        auto const comp_op =    x3::string("==") | x3::string("!=") |
+                                x3::string("<")  | x3::string(">")   |
+                                x3::string("<=") | x3::string(">=");
+
+        auto const exp = (x3::char_('e') | x3::char_('E')) >> -(x3::char_('-') | x3::char_('+')) >> +x3::digit;
+        auto const frac = '.' >> +x3::digit;
+        auto const true_ = x3::string("true");
+        auto const false_ = x3::string("false");
+        auto const null_ = x3::string("null");
+
+        auto const number = x3::int_ >> -(frac >> -exp);
+        auto const comparable = number | string_literal | true_ | false_ | null_;
+
+        auto const comp_expr = comparable >> comp_op >> comparable;
+
+        auto const regex_expr = x3::char_;
+        auto const relation_expr = comp_expr | regex_expr;
+
         auto const paren_expr = -x3::lit('!') >> '(' >> bolean_expr >> ')';
  
         auto const basic_expr = exist_expr | paren_expr | relation_expr;
@@ -245,9 +260,9 @@ namespace jsonpath {
         auto const bolean_expr_def = logical_or_expr;
         BOOST_SPIRIT_DEFINE(bolean_expr);
 
-        auto const filter_selector__def = x3::skip(x3::blank)['[' >> x3::lit('?') >> bolean_expr >> ']'];
+        auto const filter_selector__def = '[' >> x3::lit('?') >> bolean_expr >> ']';
 
-        auto const jsonpath_def = 
+        auto const json_path_def =
             // Begin grammar
             root_selector_[root_action]
             >> *(
@@ -275,7 +290,7 @@ namespace jsonpath {
         BOOST_SPIRIT_DEFINE(lsts_selector_);
         BOOST_SPIRIT_DEFINE(desc_selector_);
         BOOST_SPIRIT_DEFINE(filter_selector_);
-        BOOST_SPIRIT_DEFINE(jsonpath);
+        BOOST_SPIRIT_DEFINE(json_path);
 
 
         struct f_visit {
@@ -361,7 +376,7 @@ namespace jsonpath {
             std::string::const_iterator iter = qs.begin();
             std::string::const_iterator const end = qs.end();
 
-            bool r = x3::parse(iter, end, jsonpath::parser::jsonpath, sl_);
+            bool r = x3::parse(iter, end, x3::skip(parser::space)[jsonpath::parser::json_path], sl_);
                 
             // Init json queue
             std::deque<boost::json::value> pt;
