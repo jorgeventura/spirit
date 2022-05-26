@@ -50,6 +50,16 @@ namespace jsonpath {
                     std::cout << id << ": sel(selId i, std::vector<int> ele)" << std::endl;
                 }
                 
+                sel(selId i, std::string ele) : id(i), element(ele)
+                {
+                    std::cout << id << ": sel(selId i, std::string ele)" << std::endl;
+                }
+                
+                sel(selId i, char ele) : id(i)
+                {
+                    std::cout << id << ": sel(selId i, char)" << std::endl;
+                }
+                
                 sel(selId i, boost::variant<std::string, int> ele) : id(i)
                 {
                     std::cout << id << ": sel(selId i, boost::variant<std::string, int> ele)" << std::endl;
@@ -58,19 +68,21 @@ namespace jsonpath {
                         indx.push_back(boost::get<int>(ele));
                     } else {
                         element = boost::get<std::string>(ele);
+                        std::cout << element << std::endl;
                     }
                 }
                 
                 sel(selId i, std::vector<boost::variant<std::vector<int>, std::string, int>> ele) : id(i), lsts(ele)
                 {
-                    std::cout << id << ": sel(selId i, std::vector<boost::variant<std::string, int, std::vector<int>>> ele)" << std::endl;
+                    std::cout << id << ": sel(selId i, std::vector<boost::variant<std::vector<int>, std::string, int>> ele)" << std::endl;
                 }
         
 
+                // filter selector
                 sel(selId i, std::vector<boost::variant<boost::variant<std::string, int>, std::string>> ele) : id(i)
                 {
                     std::cout << id << ": sel(selId i, std::vector<boost::variant<boost::variant<std::string, int>, std::string>> ele)" << std::endl;
-                        std::cout << "I am here: " << ele.size() << std::endl;
+                    std::cout << "================>>>>>>>>> I am here: " << ele.size() << std::endl;
                     for (auto const& it : ele) {
                         if (it.type() == typeid(std::string)) {
                             std::cout << boost::get<std::string>(it) << std::endl;
@@ -134,22 +146,24 @@ namespace jsonpath {
         auto const space = +blank;
 
         /* Rules defined */
-        x3::rule<struct root_selector_id, char> const root_selector_ = "root";
-        x3::rule<struct dot_selector_id, std::string> dot_selector_ = "dot";
-        x3::rule<struct dotw_selector_id, std::string> dotw_selector_ = "dotw";
-        x3::rule<struct idxw_selector_id, std::string> idxw_selector_ = "idxw";
+        x3::rule<struct root_selector_id, char> const root_selector_ = "root-sel";
+        x3::rule<struct dot_selector_id, std::string> dot_selector_ = "dot-sel";
+        x3::rule<struct dotw_selector_id, std::string> dotw_selector_ = "dotw-sel";
+        x3::rule<struct idxw_selector_id, char> idxw_selector_ = "idxw-sel";
         // index-selector for number
         x3::rule<struct indx_selector_id, boost::variant<std::string, int>> indx_selector_ = "indx";
-        x3::rule<struct slice_selector_id, std::vector<int>> slice_selector_ = "slice";
+        x3::rule<struct slice_selector_id, std::vector<int>> slice_selector_ = "slice-sel";
         // list-selector for number
         // ==================================
-        x3::rule<struct lsts_selector_id, std::vector<boost::variant<std::vector<int>, std::string, int>>> lsts_selector_ = "lsts";
+        x3::rule<struct lsts_selector_id, std::vector<boost::variant<std::vector<int>, std::string, int>>> lsts_selector_ = "lsts-sel";
         // ==================================
-        x3::rule<struct desc_selector, boost::variant<std::string, int>> desc_selector_ = "desc";
+        x3::rule<struct desc_selector, boost::variant<std::string, int>> desc_selector_ = "desc-sel";
         
         // filter-selector
-        x3::rule<struct filter_selector, std::vector<boost::variant<boost::variant<std::string, int>, std::string>>> filter_selector_ = "filter";
-        //x3::rule<struct filter_selector, boost::variant<std::string, int>> filter_selector_ = "filter";
+        //x3::rule<struct filter_selector, std::vector<boost::variant<boost::variant<std::string, int>, std::string>>> filter_selector_ = "filter";
+        //x3::rule<struct filter_selector, std::vector<boost::variant<std::string, int>>> filter_selector_ = "filter";
+        x3::rule<struct filter_selector, boost::variant<std::string, int>> filter_selector_ = "filter-sel";
+        //x3::rule<struct filter_selector, std::string> filter_selector_ = "filter-sel";
 
         auto root_action    = [](auto& ctx) { sl_.slist.push_back(selector::sel(selector::selId::root, _attr(ctx))); };
         auto dot_action     = [](auto& ctx) { sl_.slist.push_back(selector::sel(selector::selId::dot, _attr(ctx))); };
@@ -220,13 +234,14 @@ namespace jsonpath {
                                                             x3::string("*")
                                                          );
         // filter-selector (8)
-        auto const rel_path = '@' >> *(indx_selector_ | dot_selector_);
+        auto const rel_path = x3::lit('@') >> *(indx_selector_ | dot_selector_);
 
         auto const path = rel_path | json_path;
         auto const exist_expr = -x3::lit('!') >> path;
         
         //x3::rule<struct bolean_expr_id, std::vector<boost::variant<boost::variant<std::string, int>, std::string>>> bolean_expr = "bolean-expr";
         //x3::rule<struct bolean_expr_id, boost::variant<std::string, int>> bolean_expr = "bolean-expr";
+        //x3::rule<struct bolean_expr_id, std::vector<boost::variant<std::string, int>>> bolean_expr = "bolean-expr";
         x3::rule<struct bolean_expr_id> bolean_expr = "bolean-expr";
 
         auto const comp_op =    x3::string("==") | x3::string("!=") |
@@ -244,12 +259,15 @@ namespace jsonpath {
 
         auto const comp_expr = comparable >> comp_op >> comparable;
 
-        auto const regex_expr = x3::char_;
+        auto const regex_expr = +x3::char_;
         auto const relation_expr = comp_expr | regex_expr;
 
         auto const paren_expr = -x3::lit('!') >> '(' >> bolean_expr >> ')';
  
         auto const basic_expr = exist_expr | paren_expr | relation_expr;
+        //auto const basic_expr = exist_expr;
+        //auto const basic_expr = paren_expr;
+        //auto const basic_expr = relation_expr;
         auto const logical_and_expr = basic_expr % "&&";
         auto const logical_or_expr = logical_and_expr % "||";
 
@@ -776,11 +794,13 @@ namespace jsonpath {
                         case selId::filter:
                             {
                                 size_t sz = pt.size();
-                                // catch all tree
                                 for (int i = 0; i < sz; i++) {
                                     json::value& jv = pt.front();
-                                    f_visit fv;
-                                    visit(fv, jv, pt);
+                                    if (jv.is_array()) {
+                                        f_visit fv;
+                                        visit(fv, jv, pt);
+                                        //std::cout << jv << std::endl;
+                                    }
                                     pt.erase(pt.begin());
                                 }
                             }
